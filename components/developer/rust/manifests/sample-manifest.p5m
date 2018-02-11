@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright 2018 Aurelien Larcher
+# Copyright 2018 <contributor>
 #
 
 set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
@@ -22,7 +22,7 @@ set name=org.opensolaris.consolidation value=$(CONSOLIDATION)
 
 license $(COMPONENT_LICENSE_FILE) license='$(COMPONENT_LICENSE)'
 
-file etc/bash_completion.d/cargo path=usr/share/bash-completion/completions/cargo
+file path=etc/bash_completion.d/cargo
 file path=usr/bin/cargo
 file path=usr/bin/cargo-fmt
 file path=usr/bin/rls
@@ -31,7 +31,7 @@ file path=usr/bin/rust-lldb
 file path=usr/bin/rustc
 file path=usr/bin/rustdoc
 file path=usr/bin/rustfmt
-file usr/lib/$(MACH64)/amd64/rustlib/x86_64-sun-solaris/codegen-backends/librustc_codegen_llvm-llvm.so path=usr/lib/$(MACH64)/rustlib/x86_64-sun-solaris/codegen-backends/librustc_codegen_llvm-llvm.so
+file path=usr/lib/$(MACH64)/amd64/rustlib/x86_64-sun-solaris/codegen-backends/librustc_codegen_llvm-llvm.so
 file path=usr/lib/$(MACH64)/libarena-fcc43dfb988e86aa.so
 file path=usr/lib/$(MACH64)/libfmt_macros-ae80ba1be30257b3.so
 file path=usr/lib/$(MACH64)/libgraphviz-92b4b0c90768698c.so
