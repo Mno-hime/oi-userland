@@ -13,8 +13,6 @@
 # Copyright 2018 Michal Nowak
 #
 
-PREFERRED_BITS=64
-
 include ../../../make-rules/shared-macros.mk
 
 COMPONENT_NAME=		dialog
@@ -47,9 +45,9 @@ CONFIGURE_OPTIONS+=	--enable-included-msgs
 CONFIGURE_OPTIONS+=	--enable-nls
 CONFIGURE_OPTIONS+=	--enable-widec
 
-build:		$(BUILD_64)
+build:		$(BUILD_32)
 
-install:	$(INSTALL_64)
+install:	$(INSTALL_32)
 
 test:		$(NO_TESTS)
 
