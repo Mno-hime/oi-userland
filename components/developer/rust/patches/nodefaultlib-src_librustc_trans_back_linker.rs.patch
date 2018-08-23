@@ -1,13 +1,10 @@
-diff --git a/src/librustc_trans/back/linker.rs b/src/librustc_trans/back/linker.rs
-index aa29c3c..48a4e33 100644
---- a/src/librustc_trans/back/linker.rs
-+++ b/src/librustc_trans/back/linker.rs
-@@ -275,7 +275,7 @@ impl<'a> Linker for GccLinker<'a> {
+--- rustc-1.28.0-src/src/librustc_codegen_llvm/back/linker.rs	2018-07-31 00:15:53.000000000 +0000
++++ rustc-1.28.0-src/src/librustc_codegen_llvm/back/linker.rs	2018-08-22 08:14:19.167640346 +0000
+@@ -320,7 +320,7 @@ impl<'a> Linker for GccLinker<'a> {
  
      fn no_default_libraries(&mut self) {
          if !self.is_ld {
 -            self.cmd.arg("-nodefaultlibs");
-+            self.cmd.arg("-Wl,-znodefaultlib");
++            self.cmd.arg("-Wl,-znodefaultlibs");
          }
      }
- 
