@@ -9,7 +9,10 @@
 
 #
 # Copyright 2017 Aurelien Larcher
+# Copyright 2018 Michal Nowak
 #
+
+PREFERRED_BITS= 64
 
 include ../../../make-rules/shared-macros.mk
 
@@ -27,19 +30,34 @@ COMPONENT_ARCHIVE_HASH= \
   sha256:982937ba5b380abe13f3a0c4dff944dd19d08b72870e3b039f5037c91f82835f
 COMPONENT_LICENSE=      APLv2
 
+PATCH_LEVEL = 0
+
 include $(WS_MAKE_RULES)/prep.mk
 include $(WS_MAKE_RULES)/setup.py.mk
 include $(WS_MAKE_RULES)/ips.mk
 
 PYTHON_VERSION =3.5
 PYTHON_VERSIONS=3.5
+VARIANT_PYTHON35 = $(BUILD_DIR)/python-35
+
+PATH=$(PATH.gnu)
+
+COMPONENT_TEST_ENV +=  CFLAGS="$(CFLAGS) $(XPG6MODE)" CPPFLAGS="$(CPPFLAGS) $(CPP_XPG6MODE)"
+
+COMPONENT_INSTALL_ARGS = --root $(PROTO_DIR) --force --prefix=/usr --install-lib=$(PYTHON_LIB)
+
+COMPONENT_TEST_DIR =    $(COMPONENT_SRC)
+
+COMPONENT_TEST_ENV += \
+		LANG=C.UTF-8 \
+		MESON_EXE=$(PROTO_DIR)/usr/bin/meson \
+		MESON_PRINT_TEST_OUTPUT=1
+
+COMPONENT_TEST_ARGS = run_tests.py
 
 build:          $(BUILD_NO_ARCH)
 
 install:        $(INSTALL_NO_ARCH)
 
-test:           $(NO_TESTS)
-
-# Auto-generated dependencies
 REQUIRED_PACKAGES += library/python/setuptools-35
 REQUIRED_PACKAGES += runtime/python-35

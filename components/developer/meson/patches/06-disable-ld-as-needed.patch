@@ -1,0 +1,32 @@
+--- mesonbuild/compilers/compilers.py	2018-09-10 09:30:15.269480666 +0000
++++ mesonbuild/compilers/compilers.py.new	2018-09-10 09:37:43.478172357 +0000
+@@ -263,7 +263,7 @@ base_options = {'b_pch': coredata.UserBo
+                                                        ['none', 'address', 'thread', 'undefined', 'memory', 'address,undefined'],
+                                                        'none'),
+                 'b_lundef': coredata.UserBooleanOption('b_lundef', 'Use -Wl,--no-undefined when linking', True),
+-                'b_asneeded': coredata.UserBooleanOption('b_asneeded', 'Use -Wl,--as-needed when linking', True),
++                'b_asneeded': coredata.UserBooleanOption('b_asneeded', 'Use -Wl,--as-needed when linking', False),
+                 'b_pgo': coredata.UserComboOption('b_pgo', 'Use profile guided optimization',
+                                                   ['off', 'generate', 'use'],
+                                                   'off'),
+--- mesonbuild/compilers/compilers.py	2018-09-10 19:11:13.060250441 +0000
++++ mesonbuild/compilers/compilers.py.new	2018-09-10 19:20:55.555485865 +0000
+@@ -262,7 +262,7 @@ base_options = {'b_pch': coredata.UserBo
+                                                        'Code sanitizer to use',
+                                                        ['none', 'address', 'thread', 'undefined', 'memory', 'address,undefined'],
+                                                        'none'),
+-                'b_lundef': coredata.UserBooleanOption('b_lundef', 'Use -Wl,--no-undefined when linking', True),
++                'b_lundef': coredata.UserBooleanOption('b_lundef', 'Use -Wl,--no-undefined when linking', False),
+                 'b_asneeded': coredata.UserBooleanOption('b_asneeded', 'Use -Wl,--as-needed when linking', False),
+                 'b_pgo': coredata.UserComboOption('b_pgo', 'Use profile guided optimization',
+                                                   ['off', 'generate', 'use'],
+--- mesonbuild/environment.py	2018-09-10 20:38:54.975415707 +0000
++++ mesonbuild/environment.py.new	2018-09-10 20:48:41.749626351 +0000
+@@ -80,6 +80,7 @@ known_cpu_families = (
+     'arm',
+     'e2k',
+     'ia64',
++    'i86pc',
+     'mips',
+     'mips64',
+     'parisc',

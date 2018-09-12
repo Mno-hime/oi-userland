@@ -1,0 +1,20 @@
+--- mesonbuild/environment.py	2018-09-12 06:34:25.952680710 +0000
++++ mesonbuild/environment.py.new	2018-09-12 06:35:58.529631410 +0000
+@@ -225,7 +225,7 @@ def detect_cpu_family(compilers):
+         return 'mips64'
+     if trial.startswith('ppc64'):
+         return 'ppc64'
+-    if trial in ('amd64', 'x64'):
++    if trial in ('amd64', 'x64', 'i86pc'):
+         trial = 'x86_64'
+     if trial == 'x86_64':
+         # On Linux (and maybe others) there can be any mixture of 32/64 bit
+@@ -252,7 +252,7 @@ def detect_cpu(compilers):
+         trial = detect_windows_arch(compilers)
+     else:
+         trial = platform.machine().lower()
+-    if trial in ('amd64', 'x64'):
++    if trial in ('amd64', 'x64', 'i86pc'):
+         trial = 'x86_64'
+     if trial == 'x86_64':
+         # Same check as above for cpu_family
