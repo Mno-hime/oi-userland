@@ -31,7 +31,7 @@ include ../../../make-rules/shared-macros.mk
 COMPONENT_NAME=		rustc
 COMPONENT_VERSION=	1.28.0
 COMPONENT_FMRI=	developer/lang/rustc
-COMPONENT_SUMMARY=	Safe, concurrent, practical languag
+COMPONENT_SUMMARY=	Rust - Safe, concurrent, practical language
 COMPONENT_CLASSIFICATION=	Development/Other Languages
 COMPONENT_PROJECT_URL=	http://www.rust-lang.org
 COMPONENT_SRC=		$(COMPONENT_NAME)-$(COMPONENT_VERSION)-src
@@ -66,6 +66,9 @@ PATCH_LEVEL=0
 # Need some help to pick the correct ar binary
 GNUAR=$(GNUBIN)/ar
 
+# Add arch triplet to pkg macros
+PKG_MACROS+= RUST_ARCH="$(RUST_ARCH)"
+
 COMPONENT_PRE_CONFIGURE_ACTION = \
 	($(CLONEY) $(SOURCE_DIR) $(@D))
 
@@ -73,7 +76,7 @@ CONFIGURE_OPTIONS = --prefix=$(CONFIGURE_PREFIX)
 CONFIGURE_OPTIONS += --mandir=$(CONFIGURE_MANDIR)
 CONFIGURE_OPTIONS += --bindir=$(CONFIGURE_BINDIR.$(BITS))
 CONFIGURE_OPTIONS += --libdir=$(CONFIGURE_LIBDIR.$(BITS))
-CONFIGURE_OPTIONS += --docdir=$(USRSHAREDOCDIR)
+CONFIGURE_OPTIONS += --docdir=$(USRSHAREDOCDIR)/rust-$(COMPONENT_VERSION)
 CONFIGURE_OPTIONS += --infodir=$(USRSHAREDIR)/info
 CONFIGURE_OPTIONS += --datadir=$(USRSHAREDIR)
 CONFIGURE_OPTIONS += --sysconfdir=$(ETCDIR)
@@ -138,6 +141,9 @@ COMPONENT_PRE_INSTALL_ACTION = \
 build: $(BUILD_64)
 
 install: $(INSTALL_64)
+
+# Build dependencies (make sure completions are installed)
+REQUIRED_PACKAGES += utility/bash-completion
 
 # Auto-generated dependencies
 REQUIRED_PACKAGES += $(GCC_RUNTIME_PKG)
