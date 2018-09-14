@@ -29,7 +29,7 @@ PREFERRED_BITS=64
 include ../../../make-rules/shared-macros.mk
 
 COMPONENT_NAME=		rustc
-COMPONENT_VERSION=	1.28.0
+COMPONENT_VERSION=	1.29.0
 COMPONENT_FMRI=	developer/lang/rustc
 COMPONENT_SUMMARY=	Rust - Safe, concurrent, practical language
 COMPONENT_CLASSIFICATION=	Development/Other Languages
@@ -37,7 +37,7 @@ COMPONENT_PROJECT_URL=	http://www.rust-lang.org
 COMPONENT_SRC=		$(COMPONENT_NAME)-$(COMPONENT_VERSION)-src
 COMPONENT_ARCHIVE=	$(COMPONENT_SRC).tar.gz
 COMPONENT_ARCHIVE_HASH=	\
-    sha256:1d5a81729c6f23a0a23b584dd249e35abe9c6f7569cee967cc42b1758ecd6486
+    sha256:a4eb34ffd47f76afe2abd813f398512d5a19ef00989d37306217c9c9ec2f61e9
 COMPONENT_ARCHIVE_URL=	http://static.rust-lang.org/dist/$(COMPONENT_ARCHIVE)
 COMPONENT_LICENSE=	MIT or Apache-2.0
 
