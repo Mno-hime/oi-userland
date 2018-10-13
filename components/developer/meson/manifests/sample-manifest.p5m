@@ -23,13 +23,10 @@ set name=org.opensolaris.consolidation value=$(CONSOLIDATION)
 license $(COMPONENT_LICENSE_FILE) license='$(COMPONENT_LICENSE)'
 
 file path=usr/bin/meson
-file path=usr/bin/mesonconf
-file path=usr/bin/mesonintrospect
-file path=usr/bin/mesontest
-file path=usr/bin/wraptool
 file path=usr/lib/python3.5/vendor-packages/meson-$(COMPONENT_VERSION)-py3.5.egg-info/PKG-INFO
 file path=usr/lib/python3.5/vendor-packages/meson-$(COMPONENT_VERSION)-py3.5.egg-info/SOURCES.txt
 file path=usr/lib/python3.5/vendor-packages/meson-$(COMPONENT_VERSION)-py3.5.egg-info/dependency_links.txt
+file path=usr/lib/python3.5/vendor-packages/meson-$(COMPONENT_VERSION)-py3.5.egg-info/entry_points.txt
 file path=usr/lib/python3.5/vendor-packages/meson-$(COMPONENT_VERSION)-py3.5.egg-info/top_level.txt
 file path=usr/lib/python3.5/vendor-packages/mesonbuild/__init__.py
 file path=usr/lib/python3.5/vendor-packages/mesonbuild/astinterpreter.py
@@ -116,5 +113,5 @@ file path=usr/lib/python3.5/vendor-packages/mesonbuild/scripts/yelphelper.py
 file path=usr/lib/python3.5/vendor-packages/mesonbuild/wrap/__init__.py
 file path=usr/lib/python3.5/vendor-packages/mesonbuild/wrap/wrap.py
 file path=usr/lib/python3.5/vendor-packages/mesonbuild/wrap/wraptool.py
-file path=usr/lib/python3.5/vendor-packages/share/man/man1/meson.1
-file path=usr/lib/python3.5/vendor-packages/share/polkit-1/actions/com.mesonbuild.install.policy
+file path=usr/share/man/man1/meson.1
+file path=usr/share/polkit-1/actions/com.mesonbuild.install.policy

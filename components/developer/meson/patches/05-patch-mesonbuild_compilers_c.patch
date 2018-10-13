@@ -9,7 +9,7 @@ Support SunOS.
                  # Apple ld
                  return ['-Wl,-undefined,dynamic_lookup']
 -            else:
-+            elif self.gcc_type != compilers.GCC_SUNOS:
++            elif self.compiler_type.is_standard_compiler != 4:
                  # GNU ld and LLVM lld
                  return ['-Wl,--allow-shlib-undefined']
          elif self.id == 'msvc':

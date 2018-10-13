@@ -1,27 +1,17 @@
-$NetBSD: patch-mesonbuild_environment.py,v 1.2 2018/05/15 09:04:37 jperkin Exp $
-
 Support SunOS ar and SunOS-specific GCC behaviour.
 
---- mesonbuild/environment.py.orig	2018-02-20 21:48:57.000000000 +0000
-+++ mesonbuild/environment.py
-@@ -29,6 +29,7 @@ from .compilers import (
-     GCC_CYGWIN,
-     GCC_MINGW,
-     GCC_OSX,
-+    GCC_SUNOS,
-     GCC_STANDARD,
-     ICC_STANDARD,
-     is_assembly,
-@@ -409,6 +410,8 @@ class Environment:
+--- mesonbuild/environment.py	2018-09-22 15:22:03.000000000 +0000
++++ mesonbuild/environment.py	2018-10-13 17:01:02.934603234 +0000
+@@ -445,6 +445,8 @@ class Environment:
          # Detect GCC type (Apple, MinGW, Cygwin, Unix)
          if '__APPLE__' in defines:
-             return GCC_OSX
+             return CompilerType.GCC_OSX
 +        elif '__sun' in defines:
-+            return GCC_SUNOS
++            return CompilerType.GCC_SUNOS
          elif '__MINGW32__' in defines or '__MINGW64__' in defines:
-             return GCC_MINGW
+             return CompilerType.GCC_MINGW
          elif '__CYGWIN__' in defines:
-@@ -779,6 +782,8 @@ class Environment:
+@@ -914,6 +916,8 @@ This is probably wrong, it should always
                  return ArLinker(linker)
              if p.returncode == 1 and err.startswith('usage'): # OSX
                  return ArLinker(linker)

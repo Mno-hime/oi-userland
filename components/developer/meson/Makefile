@@ -12,8 +12,6 @@
 # Copyright 2018 Michal Nowak
 #
 
-PREFERRED_BITS= 64
-
 include ../../../make-rules/shared-macros.mk
 
 COMPONENT_NAME=          meson
@@ -38,13 +36,12 @@ include $(WS_MAKE_RULES)/ips.mk
 
 PYTHON_VERSION =3.5
 PYTHON_VERSIONS=3.5
-VARIANT_PYTHON35 = $(BUILD_DIR)/python-35
 
 PATH=$(PATH.gnu)
 
-COMPONENT_TEST_ENV +=  CFLAGS="$(CFLAGS) $(XPG6MODE)" CPPFLAGS="$(CPPFLAGS) $(CPP_XPG6MODE)"
-
 COMPONENT_INSTALL_ARGS = --root $(PROTO_DIR) --force --prefix=/usr --install-lib=$(PYTHON_LIB)
+
+COMPONENT_TEST_ENV +=  CFLAGS="$(CFLAGS) $(XPG6MODE)" CPPFLAGS="$(CPPFLAGS) $(CPP_XPG6MODE)"
 
 COMPONENT_TEST_DIR =    $(COMPONENT_SRC)
 
@@ -59,5 +56,9 @@ build:          $(BUILD_NO_ARCH)
 
 install:        $(INSTALL_NO_ARCH)
 
+#test:		$(TEST_NO_ARCH)
+test:		$(TEST_64)
+
+# Auto-generated dependencies
 REQUIRED_PACKAGES += library/python/setuptools-35
 REQUIRED_PACKAGES += runtime/python-35
