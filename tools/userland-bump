@@ -1,0 +1,130 @@
+#!/usr/bin/python2.7
+
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright 2018 Adam Stevko
+#
+
+#
+# userland-bump - bump component revision to trigger rebuild or bump component version
+#
+
+from __future__ import print_function
+
+import argparse
+import subprocess
+import os
+import re
+import sys
+import json
+
+
+def load_db(file_name):
+    with open(file_name, 'r') as f:
+        return json.loads(f.read())
+
+
+def convert_fmri_to_path(fmri):
+
+    result = None
+
+    ws_tools = os.path.dirname(os.path.realpath(sys.argv[0]))
+    component_translate = os.path.join(ws_tools, 'component-translate')
+
+    args = [component_translate, '--fmri', fmri]
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    for out in proc.stdout:
+        result = out.rstrip()
+
+    return result
+
+
+def locate_dependents(fmri, data):
+    result = []
+
+    for component in data.keys():
+        if fmri in data[component]:
+            result.append(component)
+
+    return result
+
+
+def bump_component_revision(contents):
+    contents_new = []
+
+    component_version_idx = 0
+    component_revision_idx = 0
+    has_component_revision = False
+    for idx, line in enumerate(contents):
+        if re.match('^COMPONENT_VERSION', line):
+            component_version_idx = idx
+
+        if re.match('^COMPONENT_REVISION', line):
+            has_component_revision = True
+            component_revision_idx = idx
+
+    if has_component_revision:
+        contents_new.extend(contents[:component_revision_idx])
+
+        component_revision = int(contents[component_revision_idx].split('=')[-1])
+        component_revision += 1
+        contents_new.append('COMPONENT_REVISION=\t{}\n'.format(component_revision))
+
+        contents_new.extend(contents[component_revision_idx + 1:])
+    else:
+        contents_new.extend(contents[:component_version_idx])
+        contents_new.append('COMPONENT_REVISION=\t1\n')
+        contents_new.extend(contents[component_version_idx + 1:])
+
+    return contents_new
+
+
+def rebuild_dependent_fmris(fmri, db_path=None):
+    data = load_db(db_path)
+
+    dependent_fmris = locate_dependents(fmri=fmri, data=data)
+    for component_fmri in dependent_fmris:
+        component_path = convert_fmri_to_path(component_fmri)
+
+        contents = []
+        makefile = os.path.join(component_path, 'Makefile')
+        with open(makefile, 'r') as f:
+            contents = f.readlines()
+
+        contents = bump_component_revision(contents)
+
+        with open(makefile, 'w') as f:
+            for line in contents:
+                f.write(line)
+
+
+def main():
+    db_default_path = os.path.join(os.path.dirname(sys.argv[0]).rsplit('/', 1)[0], 'components', 'depends.json')
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--db-path', default=db_default_path, help=argparse.SUPPRESS)
+    parser.add_argument('--rebuild-dependents', action='store_true', default=False,
+                        help='Bump COMPONENT_REVISION of dependent components')
+    parser.add_argument('--fmri', required=True, help='Component FMRI')
+    args = parser.parse_args()
+
+    db_path = args.db_path
+    rebuild_dependents = args.rebuild_dependents
+    fmri = args.fmri
+
+    if rebuild_dependents:
+        rebuild_dependent_fmris(fmri=fmri, db_path=db_path)
+
+
+if __name__ == '__main__':
+    main()
