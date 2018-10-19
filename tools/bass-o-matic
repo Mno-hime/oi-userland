@@ -182,7 +182,7 @@ class BassComponent(object):
                                 cwd=path,
                                 universal_newlines=True)
         for out in proc.stdout:
-            result.append(out)
+            result.append(out.rstrip())
 
         proc.wait()
         if self.debug:

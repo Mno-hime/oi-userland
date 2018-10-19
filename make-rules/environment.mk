@@ -40,13 +40,13 @@ component-environment-check::
 	@/usr/sbin/psrinfo -vp
 	@/usr/sbin/ipadm show-addr
 	$(call separator-line,Required Packages)
-	@/usr/bin/pkg list -vH $(REQUIRED_PACKAGES:%=/%)
+	@/usr/bin/pkg list -vH $(USERLAND_REQUIRED_PACKAGES:%=/%) $(REQUIRED_PACKAGES:%=/%)
 	$(call separator-line)
 
 component-environment-prep::
-	@/usr/bin/pkg list -vH $(REQUIRED_PACKAGES:%=/%) >/dev/null || \
-		{ echo "Adding required packages to build environment..."; \
-		  $(PFEXEC) /usr/bin/pkg install --accept  $(REQUIRED_PACKAGES:%=/%) || [ $$? -eq 4 ] ; }
+	@echo "Adding required packages to build environment..."
+	@-echo $(USERLAND_REQUIRED_PACKAGES:%=/%) $(REQUIRED_PACKAGES:%=/%) | xargs \
+               $(PFEXEC) /usr/bin/pkg install --accept -v  || [ $$? -eq 4 ]
 
 # Short aliases for user convenience
 env-check:: component-environment-check

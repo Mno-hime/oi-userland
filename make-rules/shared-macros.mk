@@ -1317,7 +1317,7 @@ REQUIRED_PACKAGES += SUNWcs
 #
 # Packages with tools that are required to build Userland components
 #
-REQUIRED_PACKAGES += metapackages/build-essential
+USERLAND_REQUIRED_PACKAGES += metapackages/build-essential
 
 # Only a default dependency if component being built produces binaries.
 ifneq ($(strip $(BUILD_BITS)),NO_ARCH)
@@ -1335,6 +1335,7 @@ REQUIRED_PACKAGES_SUBST+= GFORTRAN_RUNTIME_PKG
 REQUIRED_PACKAGES_SUBST+= GOBJC_RUNTIME_PKG
 
 include $(WS_MAKE_RULES)/environment.mk
+include $(WS_MAKE_RULES)/depend.mk
 
 # A simple rule to print the value of any macro.  Ex:
 #    $ gmake print-REQUIRED_PACKAGES
