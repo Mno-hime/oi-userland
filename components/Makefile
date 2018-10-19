@@ -49,11 +49,14 @@ mapping.json: $(WS_TOP)/components/mapping.json
 
 # dependencies.json is auto-generate by the build tools. It provides information
 # about component dependencies.
-$(WS_TOP)/components/dependencies.json: $(WS_TOP)/components/mapping.json
+$(WS_TOP)/components/dependencies.json: mapping.json
 	@echo "Generating component dependency list.."
 	@$(BASS_O_MATIC) --workspace=$(WS_TOP) --components=dependencies >$@
 dependencies.json: $(WS_TOP)/components/dependencies.json
 
+rebuild-dependents: dependencies.json
+	@echo "Bumping COMPONENT_REVISION for dependents of $(COMPONENT_FMRI)"
+	@$(WS_TOOLS)/userland-bump -v --rebuild-dependents --fmri $(COMPONENT_FMRI)
 
 download:		TARGET = download
 prep:			TARGET = prep
