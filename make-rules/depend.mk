@@ -15,5 +15,5 @@
 
 print-required-packages::
 	@for package in $(REQUIRED_PACKAGES) ; do \
-		echo $$package ; \
-	done
+		echo $$package ;  \
+	done | sort -u

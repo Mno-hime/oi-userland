@@ -256,12 +256,10 @@ def main():
                 print('{0}'.format(path))
 
         elif components_arg in COMPONENTS_ALLOWED_FMRIS:
-            for path in component_paths:
-                components[path] = BassComponent(path, debug)
+            pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+            components = pool.map(BassComponent, component_paths)
 
-            for c_path in components.keys():
-                component = components[c_path]
-
+            for component in components:
                 for fmri in component.supplied_packages:
                     print('{0}'.format(fmri))
 
@@ -269,31 +267,15 @@ def main():
             dependencies = {}
 
             pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-            result = pool.map(BassComponent, component_paths)
+            components = pool.map(BassComponent, component_paths)
 
-            for component in result:
+            for component in components:
                 for fmri in component.supplied_packages:
-                    print(fmri)
                     dependencies[fmri] = component.required_packages
-
-#            for path in component_paths:
-#                component = BassComponent(path, debug)
-#                for fmri in component.supplied_packages:
-#                    print(fmri)
-#                    dependencies[fmri] = component.required_packages
 
             dependencies_file = os.path.join(workspace, subdir, 'dependencies.json')
             with open(dependencies_file, 'w') as f:
                 f.write(json.dumps(dependencies, sort_keys=True, indent=4))
-
-#            for c_path in components.keys():
-#                component = components[c_path]
-#
-#                for d_path in components.keys():
-#                    if (c_path != d_path and
-#                            component.required(components[d_path])):
-#                        print('{0}: {1}'.format(c_path, d_path))
-
         sys.exit(0)
 
     sys.exit(1)

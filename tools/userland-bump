@@ -109,7 +109,7 @@ def rebuild_dependent_fmris(fmri, db_path=None):
 
 
 def main():
-    db_default_path = os.path.join(os.path.dirname(sys.argv[0]).rsplit('/', 1)[0], 'components', 'depends.json')
+    db_default_path = os.path.join(os.path.dirname(sys.argv[0]).rsplit('/', 1)[0], 'components', 'dependencies.json')
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--db-path', default=db_default_path, help=argparse.SUPPRESS)
