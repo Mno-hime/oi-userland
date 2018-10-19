@@ -176,7 +176,7 @@ class BassComponent(object):
         if self.debug:
             logger.debug('Executing \'gmake %s\' in %s', targets, path)
 
-        proc = subprocess.Popen(['gmake', targets],
+        proc = subprocess.Popen(['gmake', '-s', targets],
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE,
                                 cwd=path,
