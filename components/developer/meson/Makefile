@@ -15,7 +15,7 @@
 include ../../../make-rules/shared-macros.mk
 
 COMPONENT_NAME=          meson
-COMPONENT_VERSION=       0.48.0
+COMPONENT_VERSION=       0.48.1
 COMPONENT_SUMMARY=       The Meson Build system
 COMPONENT_PROJECT_URL=   http://mesonbuild.com/
 COMPONENT_FMRI=          developer/build/meson
@@ -25,7 +25,7 @@ COMPONENT_ARCHIVE=      $(COMPONENT_SRC).tar.gz
 COMPONENT_ARCHIVE_URL= \
   https://github.com/mesonbuild/meson/releases/download/$(COMPONENT_VERSION)/$(COMPONENT_ARCHIVE)
 COMPONENT_ARCHIVE_HASH= \
-  sha256:982937ba5b380abe13f3a0c4dff944dd19d08b72870e3b039f5037c91f82835f
+  sha256:425d12edbb81498314926afa93a3eb2fca4ca6929cbe0f8abeb6ab45d1d9fa8f
 COMPONENT_LICENSE=      APLv2
 
 PATCH_LEVEL = 0
