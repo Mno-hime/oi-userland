@@ -54,9 +54,9 @@ $(WS_TOP)/components/dependencies.json: mapping.json
 	@$(BASS_O_MATIC) --workspace=$(WS_TOP) --components=dependencies >$@
 dependencies.json: $(WS_TOP)/components/dependencies.json
 
-rebuild-dependents: dependencies.json
-	@echo "Bumping COMPONENT_REVISION for dependents of $(REBUILD_FMRI)"
-	@$(WS_TOOLS)/userland-bump -v --rebuild-dependents --fmri $(REBUILD_FMRI)
+rebuild-dependants: dependencies.json
+	@echo "Bumping COMPONENT_REVISION for dependants of $(REBUILD_FMRI)"
+	@$(WS_TOOLS)/userland-bump -v --rebuild-dependants --fmri $(REBUILD_FMRI)
 
 download:		TARGET = download
 prep:			TARGET = prep

@@ -49,7 +49,7 @@ def convert_fmri_to_path(fmri):
     return result
 
 
-def locate_dependents(fmri, data):
+def locate_dependants(fmri, data):
     result = []
 
     for component in data.keys():
@@ -92,7 +92,7 @@ def bump_component_revision(contents):
 def rebuild_dependent_fmris(fmri, db_path=None, workspace=None, subdir='components', verbose=False):
     data = load_db(db_path)
 
-    dependent_fmris = locate_dependents(fmri=fmri, data=data)
+    dependent_fmris = locate_dependants(fmri=fmri, data=data)
     for component_fmri in dependent_fmris:
         if verbose:
             print('Processing {}'.format(component_fmri))
@@ -118,20 +118,20 @@ def main():
     parser.add_argument('--db-path', default=db_default_path, help=argparse.SUPPRESS)
     parser.add_argument('-w', '--workspace', default=workspace_default_path, help='Path to workspace')
     parser.add_argument('--subdir', default='components', help='Directory holding components')
-    parser.add_argument('--rebuild-dependents', action='store_true', default=False,
+    parser.add_argument('--rebuild-dependants', action='store_true', default=False,
                         help='Bump COMPONENT_REVISION of dependent components')
     parser.add_argument('--fmri', required=True, help='Component FMRI')
     parser.add_argument('-v', '--verbose', action='store_true', default=False, help='Verbose output')
     args = parser.parse_args()
 
     db_path = args.db_path
-    rebuild_dependents = args.rebuild_dependents
+    rebuild_depandents = args.rebuild_dependants
     fmri = args.fmri
     verbose = args.verbose
     workspace = args.workspace
     subdir = args.subdir
 
-    if rebuild_dependents:
+    if rebuild_depandents:
         rebuild_dependent_fmris(fmri=fmri, db_path=db_path, workspace=workspace, subdir=subdir, verbose=verbose)
 
 
