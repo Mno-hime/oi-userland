@@ -125,13 +125,13 @@ def main():
     args = parser.parse_args()
 
     db_path = args.db_path
-    rebuild_depandents = args.rebuild_dependants
+    rebuild_dependants = args.rebuild_dependants
     fmri = args.fmri
     verbose = args.verbose
     workspace = args.workspace
     subdir = args.subdir
 
-    if rebuild_depandents:
+    if rebuild_dependants:
         rebuild_dependent_fmris(fmri=fmri, db_path=db_path, workspace=workspace, subdir=subdir, verbose=verbose)
 
 
