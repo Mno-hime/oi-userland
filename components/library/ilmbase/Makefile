@@ -21,11 +21,13 @@
 
 #
 # Copyright (c) 2011, 2017, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, Michal Nowak
 #
+
 include ../../../make-rules/shared-macros.mk
 
 COMPONENT_NAME=         ilmbase
-COMPONENT_VERSION=      2.2.0
+COMPONENT_VERSION=      2.2.1
 COMPONENT_FMRI=         library/ilmbase
 COMPONENT_CLASSIFICATION=System/Libraries
 COMPONENT_SUMMARY=      Ilmbase libraries used to read and write OpenEXR images
@@ -33,9 +35,9 @@ COMPONENT_SRC=          $(COMPONENT_NAME)-$(COMPONENT_VERSION)
 COMPONENT_PROJECT_URL=  http://www.openexr.com/
 COMPONENT_ARCHIVE=      $(COMPONENT_SRC).tar.gz
 COMPONENT_ARCHIVE_HASH= \
-  sha256:ecf815b60695555c1fbc73679e84c7c9902f4e8faa6e8000d2f905b8b86cedc7
+	sha256:cac206e63be68136ef556c2b555df659f45098c159ce24804e9d5e9e0286609e
 COMPONENT_ARCHIVE_URL= \
-  http://download.savannah.nongnu.org/releases/openexr/$(COMPONENT_ARCHIVE)
+	http://download.savannah.nongnu.org/releases/openexr/$(COMPONENT_ARCHIVE)
 COMPONENT_LICENSE=      BSD
 
 include $(WS_MAKE_RULES)/prep.mk
@@ -89,6 +91,9 @@ COMPONENT_TEST_TRANSFORMS += \
 	'-e "/Leaving directory/d"' \
 	'-e "/Entering directory/d"' \
 	'-e "/^XXX_CC_XXX$$/d" '
+
+# To prevent "libtool_install_magic: unbound variable"
+unexport SHELLOPTS
 
 build: $(BUILD_32_and_64)
 

@@ -11,6 +11,7 @@
 
 #
 # Copyright 2017 Aurelien Larcher
+# Copyright 2018 Michal Nowak
 #
 
 set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
@@ -21,6 +22,8 @@ set name=info.source-url value=$(COMPONENT_ARCHIVE_URL)
 set name=org.opensolaris.consolidation value=$(CONSOLIDATION)
 
 license $(COMPONENT_LICENSE_FILE) license='$(COMPONENT_LICENSE)'
+
+file Solaris/libilmbase.3lib path=usr/share/man/man3/libilmbase.3lib
 
 file path=usr/include/OpenEXR/Iex.h
 file path=usr/include/OpenEXR/IexBaseExc.h
@@ -79,38 +82,36 @@ file path=usr/include/OpenEXR/half.h
 file path=usr/include/OpenEXR/halfExport.h
 file path=usr/include/OpenEXR/halfFunction.h
 file path=usr/include/OpenEXR/halfLimits.h
-link path=usr/lib/$(MACH64)/libHalf.so target=libHalf.so.12.0.0
-link path=usr/lib/$(MACH64)/libHalf.so.12 target=libHalf.so.12.0.0
-file path=usr/lib/$(MACH64)/libHalf.so.12.0.0
-link path=usr/lib/$(MACH64)/libIex-2_2.so.12 target=libIex-2_2.so.12.0.0
-file path=usr/lib/$(MACH64)/libIex-2_2.so.12.0.0
-link path=usr/lib/$(MACH64)/libIex.so target=libIex-2_2.so.12.0.0
-link path=usr/lib/$(MACH64)/libIexMath-2_2.so.12 target=libIexMath-2_2.so.12.0.0
-file path=usr/lib/$(MACH64)/libIexMath-2_2.so.12.0.0
-link path=usr/lib/$(MACH64)/libIexMath.so target=libIexMath-2_2.so.12.0.0
-link path=usr/lib/$(MACH64)/libIlmThread-2_2.so.12 \
-    target=libIlmThread-2_2.so.12.0.0
-file path=usr/lib/$(MACH64)/libIlmThread-2_2.so.12.0.0
-link path=usr/lib/$(MACH64)/libIlmThread.so target=libIlmThread-2_2.so.12.0.0
-link path=usr/lib/$(MACH64)/libImath-2_2.so.12 target=libImath-2_2.so.12.0.0
-file path=usr/lib/$(MACH64)/libImath-2_2.so.12.0.0
-link path=usr/lib/$(MACH64)/libImath.so target=libImath-2_2.so.12.0.0
+link path=usr/lib/$(MACH64)/libHalf.so target=libHalf.so.23.0.0
+link path=usr/lib/$(MACH64)/libHalf.so.23 target=libHalf.so.23.0.0
+file path=usr/lib/$(MACH64)/libHalf.so.23.0.0
+link path=usr/lib/$(MACH64)/libIex-2_2.so.23 target=libIex-2_2.so.23.0.0
+file path=usr/lib/$(MACH64)/libIex-2_2.so.23.0.0
+link path=usr/lib/$(MACH64)/libIex.so target=libIex-2_2.so.23.0.0
+link path=usr/lib/$(MACH64)/libIexMath-2_2.so.23 target=libIexMath-2_2.so.23.0.0
+file path=usr/lib/$(MACH64)/libIexMath-2_2.so.23.0.0
+link path=usr/lib/$(MACH64)/libIexMath.so target=libIexMath-2_2.so.23.0.0
+link path=usr/lib/$(MACH64)/libIlmThread-2_2.so.23 \
+    target=libIlmThread-2_2.so.23.0.0
+file path=usr/lib/$(MACH64)/libIlmThread-2_2.so.23.0.0
+link path=usr/lib/$(MACH64)/libIlmThread.so target=libIlmThread-2_2.so.23.0.0
+link path=usr/lib/$(MACH64)/libImath-2_2.so.23 target=libImath-2_2.so.23.0.0
+file path=usr/lib/$(MACH64)/libImath-2_2.so.23.0.0
+link path=usr/lib/$(MACH64)/libImath.so target=libImath-2_2.so.23.0.0
 file path=usr/lib/$(MACH64)/pkgconfig/IlmBase.pc
-link path=usr/lib/libHalf.so target=libHalf.so.12.0.0
-link path=usr/lib/libHalf.so.12 target=libHalf.so.12.0.0
-file path=usr/lib/libHalf.so.12.0.0
-link path=usr/lib/libIex-2_2.so.12 target=libIex-2_2.so.12.0.0
-file path=usr/lib/libIex-2_2.so.12.0.0
-link path=usr/lib/libIex.so target=libIex-2_2.so.12.0.0
-link path=usr/lib/libIexMath-2_2.so.12 target=libIexMath-2_2.so.12.0.0
-file path=usr/lib/libIexMath-2_2.so.12.0.0
-link path=usr/lib/libIexMath.so target=libIexMath-2_2.so.12.0.0
-link path=usr/lib/libIlmThread-2_2.so.12 target=libIlmThread-2_2.so.12.0.0
-file path=usr/lib/libIlmThread-2_2.so.12.0.0
-link path=usr/lib/libIlmThread.so target=libIlmThread-2_2.so.12.0.0
-link path=usr/lib/libImath-2_2.so.12 target=libImath-2_2.so.12.0.0
-file path=usr/lib/libImath-2_2.so.12.0.0
-link path=usr/lib/libImath.so target=libImath-2_2.so.12.0.0
+link path=usr/lib/libHalf.so target=libHalf.so.23.0.0
+link path=usr/lib/libHalf.so.23 target=libHalf.so.23.0.0
+file path=usr/lib/libHalf.so.23.0.0
+link path=usr/lib/libIex-2_2.so.23 target=libIex-2_2.so.23.0.0
+file path=usr/lib/libIex-2_2.so.23.0.0
+link path=usr/lib/libIex.so target=libIex-2_2.so.23.0.0
+link path=usr/lib/libIexMath-2_2.so.23 target=libIexMath-2_2.so.23.0.0
+file path=usr/lib/libIexMath-2_2.so.23.0.0
+link path=usr/lib/libIexMath.so target=libIexMath-2_2.so.23.0.0
+link path=usr/lib/libIlmThread-2_2.so.23 target=libIlmThread-2_2.so.23.0.0
+file path=usr/lib/libIlmThread-2_2.so.23.0.0
+link path=usr/lib/libIlmThread.so target=libIlmThread-2_2.so.23.0.0
+link path=usr/lib/libImath-2_2.so.23 target=libImath-2_2.so.23.0.0
+file path=usr/lib/libImath-2_2.so.23.0.0
+link path=usr/lib/libImath.so target=libImath-2_2.so.23.0.0
 file path=usr/lib/pkgconfig/IlmBase.pc
-
-file Solaris/libilmbase.3lib path=usr/share/man/man3/libilmbase.3lib
