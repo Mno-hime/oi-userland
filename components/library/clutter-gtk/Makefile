@@ -11,20 +11,21 @@
 
 #
 # Copyright 2014 Alexander Pyhalov.  All rights reserved.
+# Copyright 2018 Michal Nowak
 #
 
 include ../../../make-rules/shared-macros.mk
 
-COMPONENT_NAME= clutter-gtk
-COMPONENT_VERSION= 0.10.8
-COMPONENT_SUMMARY= GTK+ integration library for clutter
-COMPONENT_SRC= $(COMPONENT_NAME)-$(COMPONENT_VERSION)
-COMPONENT_ARCHIVE= $(COMPONENT_SRC).tar.bz2
+COMPONENT_NAME=		clutter-gtk
+COMPONENT_VERSION=	1.0.4
+COMPONENT_SUMMARY=	GTK+ integration library for clutter
+COMPONENT_SRC=		$(COMPONENT_NAME)-$(COMPONENT_VERSION)
+COMPONENT_ARCHIVE=	$(COMPONENT_SRC).tar.xz
 COMPONENT_ARCHIVE_HASH= \
-  sha256:7867f951568871d9f68cbe8a3644fd53d2138f725b7ba61ffc0053eb64e80814
+	sha256:0741fd2feb7d065dd5949a0b47f9cd740272c1428ca93431dea677acb6de464e
 COMPONENT_ARCHIVE_URL= \
-  http://ftp.gnome.org/pub/GNOME/sources/$(COMPONENT_NAME)/0.10/$(COMPONENT_ARCHIVE)
-COMPONENT_PROJECT_URL = http://www.clutter-project.org/
+	http://ftp.gnome.org/pub/GNOME/sources/$(COMPONENT_NAME)/1.0/$(COMPONENT_ARCHIVE)
+COMPONENT_PROJECT_URL=	http://www.clutter-project.org/
 
 include $(WS_MAKE_RULES)/prep.mk
 include $(WS_MAKE_RULES)/configure.mk
@@ -36,8 +37,9 @@ COMPONENT_PREP_ACTION =        ( cd $(@D) && \
 					aclocal -I./build/autotools && \
 					autoheader && \
 					libtoolize --automake --copy --force && \
-					automake -a -f -c &&\
-					autoconf )
+					automake -a -f -c && \
+					autoconf && \
+					autoreconf -fi )
 
 LDFLAGS += -lm -lgthread-2.0
 
@@ -50,18 +52,20 @@ CONFIGURE_OPTIONS.64 += --libexecdir=/usr/lib/$(MACH64)
 COMPONENT_BUILD_ENV += CFLAGS="$(CFLAGS)"
 COMPONENT_BUILD_ENV += CC="$(CC)"
 
-build: $(BUILD_32_and_64)
+build:		$(BUILD_32_and_64)
 
-install: $(INSTALL_32_and_64)
+install:	$(INSTALL_32_and_64)
 
-test: $(NO_TESTS)
+test:		$(NO_TESTS)
 
 # Build dependencies
 REQUIRED_PACKAGES += library/desktop/gobject/gobject-introspection
 
 # Auto-generated dependencies
+REQUIRED_PACKAGES += library/desktop/cairo
 REQUIRED_PACKAGES += library/desktop/clutter
 REQUIRED_PACKAGES += library/desktop/gdk-pixbuf
-REQUIRED_PACKAGES += library/desktop/gtk2
+REQUIRED_PACKAGES += library/desktop/gtk3
 REQUIRED_PACKAGES += library/glib2
 REQUIRED_PACKAGES += system/library
+REQUIRED_PACKAGES += system/library/math
