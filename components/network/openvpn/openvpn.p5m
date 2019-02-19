@@ -10,6 +10,7 @@
 
 #
 # Copyright 2013 Adam Stevko. All rights reserved.
+# Copyright 2019 Michal Nowak
 #
 
 set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
@@ -38,8 +39,8 @@ depend type=require fmri=network/openvpn/easy-rsa
 
 file path=usr/include/openvpn-msg.h
 file path=usr/include/openvpn-plugin.h
-file path=usr/lib/openvpn/plugins/openvpn-plugin-auth-pam.so
-file path=usr/lib/openvpn/plugins/openvpn-plugin-down-root.so
+file path=usr/lib/$(MACH64)/openvpn/plugins/openvpn-plugin-auth-pam.so
+file path=usr/lib/$(MACH64)/openvpn/plugins/openvpn-plugin-down-root.so
 file path=usr/sbin/openvpn
 file path=usr/share/doc/openvpn/COPYING
 file path=usr/share/doc/openvpn/COPYRIGHT.GPL
@@ -48,5 +49,5 @@ file path=usr/share/doc/openvpn/README
 file path=usr/share/doc/openvpn/README.IPv6
 file path=usr/share/doc/openvpn/README.auth-pam
 file path=usr/share/doc/openvpn/README.down-root
-file path=usr/share/doc/openvpn/README.polarssl
+file path=usr/share/doc/openvpn/README.mbedtls
 file path=usr/share/doc/openvpn/management-notes.txt
