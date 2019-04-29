@@ -1,0 +1,26 @@
+Otherwise pingsender program build fails with:
+
+  g++: error: -pie is not supported in this configuration
+
+--- firefox-66.0.3/build/autoconf/compiler-opts.m4	2019-04-09 21:59:44.000000000 +0000
++++ firefox-66.0.3/build/autoconf/compiler-opts.m4.new	2019-04-29 08:57:54.375801115 +0000
+@@ -176,7 +176,7 @@ if test "$GNU_CC" -a "$GCC_USE_GNU_LD" -
+ fi
+ 
+ if test "$GNU_CC$CLANG_CC"; then
+-    MOZ_PROGRAM_LDFLAGS="$MOZ_PROGRAM_LDFLAGS -pie"
++    MOZ_PROGRAM_LDFLAGS="$MOZ_PROGRAM_LDFLAGS"
+ fi
+ 
+ AC_SUBST(MOZ_PROGRAM_LDFLAGS)
+--- firefox-66.0.3/old-configure	2019-04-28 19:50:23.126848580 +0000
++++ firefox-66.0.3/old-configure.new	2019-04-29 08:58:07.086815349 +0000
+@@ -5772,7 +5772,7 @@ echo "$ac_t""$GC_SECTIONS_BREAKS_DEBUG_R
+ fi
+ 
+ if test "$GNU_CC$CLANG_CC"; then
+-    MOZ_PROGRAM_LDFLAGS="$MOZ_PROGRAM_LDFLAGS -pie"
++    MOZ_PROGRAM_LDFLAGS="$MOZ_PROGRAM_LDFLAGS"
+ fi
+ 
+ 

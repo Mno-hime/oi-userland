@@ -6,10 +6,10 @@ diff -Naur firefox-60.5.0/js/src/wasm/WasmSignalHandlers.cpp.old  firefox-60.5.0
 --- firefox-60.5.0/js/src/wasm/WasmSignalHandlers.cpp.old       2019-01-23 12:47:43.922224151 +0000
 +++ firefox-60.5.0/js/src/wasm/WasmSignalHandlers.cpp   2019-01-23 12:48:11.897644411 +0000
 @@ -133,6 +133,7 @@
- #define EBP_sig(p) ((p)->uc_mcontext.gregs[REG_EBP])
- #define ESP_sig(p) ((p)->uc_mcontext.gregs[REG_ESP])
- #else
+ #    define EBP_sig(p) ((p)->uc_mcontext.gregs[REG_EBP])
+ #    define ESP_sig(p) ((p)->uc_mcontext.gregs[REG_ESP])
+ #  else
 +#include <sys/regset.h>
- #define XMM_sig(p, i) ((p)->uc_mcontext.fpregs.fp_reg_set.fpchip_state.xmm[i])
- #define EIP_sig(p) ((p)->uc_mcontext.gregs[REG_PC])
- #define EBP_sig(p) ((p)->uc_mcontext.gregs[REG_EBP])
+ #    define EIP_sig(p) ((p)->uc_mcontext.gregs[REG_PC])
+ #    define EBP_sig(p) ((p)->uc_mcontext.gregs[REG_EBP])
+ #    define ESP_sig(p) ((p)->uc_mcontext.gregs[REG_ESP])
