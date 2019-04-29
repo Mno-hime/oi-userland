@@ -1,0 +1,12 @@
+--- firefox-66.0.3/toolkit/moz.configure	2019-04-09 22:01:09.000000000 +0000
++++ firefox-66.0.3/toolkit/moz.configure.new	2019-04-29 17:33:55.637461094 +0000
+@@ -1539,9 +1539,6 @@ with only_when(compile_environment):
+             return namespace(flags=flags, need_yasm=need_yasm)
+ 
+ 
+-    set_config('MOZ_LIBAV_FFT', depends(when=libav_fft)(lambda: True))
+-    set_define('MOZ_LIBAV_FFT', depends(when=libav_fft)(lambda: True))
+-    set_config('LIBAV_FFT_ASFLAGS', libav_fft.flags)
+ 
+ 
+ # FFmpeg's ffvpx configuration

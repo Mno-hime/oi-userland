@@ -21,13 +21,14 @@ PREFERRED_BITS=		64
 include ../../../make-rules/shared-macros.mk
 
 COMPONENT_NAME=		firefox
-IPS_COMPONENT_VERSION=	60.6.3
-COMPONENT_VERSION=	$(IPS_COMPONENT_VERSION)esr
+IPS_COMPONENT_VERSION=	66.0.5
+COMPONENT_VERSION=	$(IPS_COMPONENT_VERSION)
+#COMPONENT_VERSION=	$(IPS_COMPONENT_VERSION)esr
 COMPONENT_SUMMARY= 	Mozilla Firefox Web browser
 COMPONENT_SRC= 		$(COMPONENT_NAME)-$(IPS_COMPONENT_VERSION)
 COMPONENT_ARCHIVE= 	$(COMPONENT_NAME)-$(COMPONENT_VERSION).source.tar.xz
 COMPONENT_ARCHIVE_HASH= \
-	sha256:eebf34968c64cf8c007dd0da98124edf55cdda141f8b4c653e8e00b22650833e
+	sha256:a2aeb4e036d1365a2d2550e24ba8b4dde061281300f2b11a204cc1e9eb1792b5
 ifdef CANDIDATE_BUILD
 COMPONENT_ARCHIVE_URL= \
 	https://ftp.mozilla.org/pub/firefox/candidates/$(COMPONENT_VERSION)-candidates/build$(CANDIDATE_BUILD)/source/$(COMPONENT_ARCHIVE)
@@ -58,15 +59,24 @@ COMPONENT_PREP_ACTION = ( cd $(@D) && autoconf-2.13 &&\
 
 GNU_ARCH=		x86_64-sun-solaris
 
+# CXXFLAGS +=     -Wno-invalid-offsetof -fpermissive
+#CXXFLAGS +=     -Wno-invalid-offsetof -Wno-inline-new-delete
+#GCC_VERSION=	   8
+#CXXFLAGS +=	-fpic
+
+#LD_Z_IGNORE=
+#LD_B_DIRECT=
 FIREFOX_LIBDIR =	$(CONFIGURE_LIBDIR.$(BITS))
 CONFIGURE_OPTIONS =	--enable-application=browser
 CONFIGURE_OPTIONS +=	--enable-official-branding
 CONFIGURE_OPTIONS +=	--disable-updater
 CONFIGURE_OPTIONS +=	--disable-debug-symbols
-CONFIGURE_OPTIONS +=	--enable-update-channel=esr
+CONFIGURE_OPTIONS +=	--enable-update-channel=release
+#CONFIGURE_OPTIONS +=	--enable-update-channel=esr
 CONFIGURE_OPTIONS +=	--disable-tests
 CONFIGURE_OPTIONS +=	--disable-jemalloc
 CONFIGURE_OPTIONS +=	--enable-optimize="-O2 -fno-schedule-insns2 -fno-lifetime-dse -fno-delete-null-pointer-checks"
+#CONFIGURE_OPTIONS +=	--enable-optimize="-O2 -fno-schedule-insns2 -fno-lifetime-dse -fno-delete-null-pointer-checks -Wno-sign-compare"
 CONFIGURE_OPTIONS +=	--disable-dtrace
 CONFIGURE_OPTIONS +=	--disable-crashreporter
 CONFIGURE_OPTIONS +=	--enable-pulseaudio
@@ -74,7 +84,6 @@ CONFIGURE_OPTIONS +=	--disable-webrtc
 CONFIGURE_OPTIONS +=	--with-intl-api
 CONFIGURE_OPTIONS +=	--disable-debug
 CONFIGURE_OPTIONS +=	--enable-default-toolkit=cairo-gtk3
-CONFIGURE_OPTIONS +=	--with-pthreads
 CONFIGURE_OPTIONS +=	--enable-system-pixman
 CONFIGURE_OPTIONS +=	--with-system-zlib
 CONFIGURE_OPTIONS +=	--with-system-bz2
@@ -87,6 +96,7 @@ CONFIGURE_OPTIONS +=	--target=$(GNU_ARCH)
 ENV +=  PATH=$(PATH)
 ENV +=	CC=$(CC)
 ENV +=	CFLAGS="$(CFLAGS)"
+ENV +=	CFLAGS="$(CFLAGS) -D_POSIX_PTHREAD_SEMANTICS"
 ENV +=	CXX=$(CXX)
 ENV +=	CXXFLAGS="$(CXXFLAGS)"
 ENV +=	LDFLAGS="$(LDFLAGS) -lm"
@@ -99,6 +109,8 @@ ENV +=	MOZILLA_PKG_NAME=firefox
 ENV +=	SHELL="/bin/bash"
 ENV +=  LDFLAGS="-L$(BUILD_DIR_64)/dist/lib -L$(BUILD_DIR_64)/dist/bin"
 ENV +=  PYTHON="$(PYTHON)"
+ENV +=  CC_x86_64_sun_solaris=$(CC)
+ENV +=  CXX_x86_64_sun_solaris=$(CXX)
 
 COMPONENT_BUILD_ARGS += $(JOBS:%=-j%)
 
@@ -136,14 +148,16 @@ install: $(INSTALL_64)
 
 # Build dependencies
 REQUIRED_PACKAGES += developer/build/autoconf-213
-REQUIRED_PACKAGES += library/audio/pulseaudio
-REQUIRED_PACKAGES += system/header/header-audio
 REQUIRED_PACKAGES += developer/clang-40
 REQUIRED_PACKAGES += developer/lang/rustc
 REQUIRED_PACKAGES += gnome/config/gconf
+REQUIRED_PACKAGES += library/audio/pulseaudio
 REQUIRED_PACKAGES += runtime/python-27
+REQUIRED_PACKAGES += runtime/nodejs-12
+REQUIRED_PACKAGES += system/header/header-audio
 
 # Auto-generated dependencies
+REQUIRED_PACKAGES += SUNWcs
 REQUIRED_PACKAGES += library/desktop/atk
 REQUIRED_PACKAGES += library/desktop/cairo
 REQUIRED_PACKAGES += library/desktop/gdk-pixbuf

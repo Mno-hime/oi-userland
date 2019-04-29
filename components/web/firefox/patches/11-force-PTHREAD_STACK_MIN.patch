@@ -1,0 +1,15 @@
+--- firefox-66.0.3/js/xpconnect/src/XPCJSContext.cpp	2019-04-09 22:00:16.000000000 +0000
++++ firefox-66.0.3/js/xpconnect/src/XPCJSContext.cpp.new	2019-04-28 20:42:24.549968682 +0000
+@@ -85,9 +85,9 @@ using mozilla::dom::AutoEntryScript;
+ 
+ // The watchdog thread loop is pretty trivial, and should not require much stack
+ // space to do its job. So only give it 32KiB or the platform minimum.
+-#if !defined(PTHREAD_STACK_MIN)
+-#  define PTHREAD_STACK_MIN 0
+-#endif
++//#if !defined(PTHREAD_STACK_MIN)
++#define PTHREAD_STACK_MIN 0
++//#endif
+ static constexpr size_t kWatchdogStackSize =
+     PTHREAD_STACK_MIN < 32 * 1024 ? 32 * 1024 : PTHREAD_STACK_MIN;
+ 
