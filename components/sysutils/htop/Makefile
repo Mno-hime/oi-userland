@@ -19,13 +19,16 @@
 # CDDL HEADER END
 #
 # Copyright 2018, Aurelien Larcher
+# Copyright 2019, Michal Nowak
 #
+
 PREFERRED_BITS=64
 
 include ../../../make-rules/shared-macros.mk
 
 COMPONENT_NAME=     htop
 COMPONENT_VERSION=  2.2.0
+COMPONENT_REVISION= 1
 COMPONENT_FMRI=     diagnostic/htop
 COMPONENT_SUMMARY=  htop - an interactive process viewer for Unix
 COMPONENT_PROJECT_URL= https://hisham.hm/htop/

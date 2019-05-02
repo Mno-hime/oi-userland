@@ -1,0 +1,4727 @@
+From c0d122acabc1307681caa0242eda6fe55c18fd07 Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <thrirhrafnir@gmail.com>
+Date: Thu, 14 Jun 2018 18:49:59 -0400
+Subject: [PATCH 01/28] Solaris: Consolidate some redundant checks for
+ successful kstat and sysconf calls
+
+---
+ solaris/SolarisProcessList.c | 100 +++++++++++++++++++----------------
+ 1 file changed, 54 insertions(+), 46 deletions(-)
+
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index 2c681852..f3170e65 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -76,11 +76,22 @@ ProcessList* ProcessList_new(UsersTable* usersTable, Hashtable* pidWhiteList, ui
+    SolarisProcessList* spl = xCalloc(1, sizeof(SolarisProcessList));
+    ProcessList* pl = (ProcessList*) spl;
+    ProcessList_init(pl, Class(SolarisProcess), usersTable, pidWhiteList, userId);
++   spl->kd = NULL;
++   pl->cpuCount = 0;
+ 
+-   spl->kd = kstat_open();
++   // Failing to obtain a kstat handle is is fatal
++   if ( (spl->kd = kstat_open()) == NULL ) {
++      fprintf(stderr, "\nUnable to open kstat handle.\n");
++      abort();
++   }
+ 
+-   pl->cpuCount = sysconf(_SC_NPROCESSORS_ONLN);
++   // ...as is failing to access sysconf data
++   if ( (pl->cpuCount = sysconf(_SC_NPROCESSORS_ONLN)) <= 0 ) {
++      fprintf(stderr, "\nThe sysconf() system call does not seem to be working.\n");
++      abort();
++   }
+ 
++   // The extra "cpu" for spl->cpus > 1 is to store aggregate data for all CPUs
+    if (pl->cpuCount == 1 ) {
+       spl->cpus = xRealloc(spl->cpus, sizeof(CPUData));
+    } else {
+@@ -94,7 +105,7 @@ static inline void SolarisProcessList_scanCPUTime(ProcessList* pl) {
+    const SolarisProcessList* spl = (SolarisProcessList*) pl;
+    int cpus = pl->cpuCount;
+    kstat_t *cpuinfo = NULL;
+-   int kchain = 0;
++   int kchain = -1;
+    kstat_named_t *idletime = NULL;
+    kstat_named_t *intrtime = NULL;
+    kstat_named_t *krnltime = NULL;
+@@ -106,7 +117,7 @@ static inline void SolarisProcessList_scanCPUTime(ProcessList* pl) {
+    uint64_t totaltime = 0;
+    int arrskip = 0;
+ 
+-   assert(cpus > 0);
++   // cpus > 0 covered in ProcessList_new()
+ 
+    if (cpus > 1) {
+        // Store values for the stats loop one extra element up in the array
+@@ -116,17 +127,20 @@ static inline void SolarisProcessList_scanCPUTime(ProcessList* pl) {
+ 
+    // Calculate per-CPU statistics first
+    for (int i = 0; i < cpus; i++) {
+-      if (spl->kd != NULL) { cpuinfo = kstat_lookup(spl->kd,"cpu",i,"sys"); }
+-      if (cpuinfo != NULL) { kchain = kstat_read(spl->kd,cpuinfo,NULL); }
+-      if (kchain  != -1  ) {
+-         idletime = kstat_data_lookup(cpuinfo,"cpu_nsec_idle");
+-         intrtime = kstat_data_lookup(cpuinfo,"cpu_nsec_intr");
+-         krnltime = kstat_data_lookup(cpuinfo,"cpu_nsec_kernel");
+-         usertime = kstat_data_lookup(cpuinfo,"cpu_nsec_user");
++      if ( (cpuinfo = kstat_lookup(spl->kd,"cpu",i,"sys")) != NULL) {
++         if ( (kchain = kstat_read(spl->kd,cpuinfo,NULL)) != -1 ) {
++            idletime = kstat_data_lookup(cpuinfo,"cpu_nsec_idle");
++            intrtime = kstat_data_lookup(cpuinfo,"cpu_nsec_intr");
++            krnltime = kstat_data_lookup(cpuinfo,"cpu_nsec_kernel");
++            usertime = kstat_data_lookup(cpuinfo,"cpu_nsec_user");
++         }
+       }
+ 
+-      assert( (idletime != NULL) && (intrtime != NULL)
+-           && (krnltime != NULL) && (usertime != NULL) );
++      if !( (idletime != NULL) && (intrtime != NULL)
++           && (krnltime != NULL) && (usertime != NULL) ) {
++         fprintf(stderr,"\nCalls to kstat do not appear to be working.\n");
++         abort();
++      }
+ 
+       CPUData* cpuData = &(spl->cpus[i+arrskip]);
+       totaltime = (idletime->value.ui64 - cpuData->lidle)
+@@ -181,43 +195,37 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+    char                *spathbase = NULL;
+ 
+    // Part 1 - physical memory
+-   if (spl->kd != NULL) { meminfo    = kstat_lookup(spl->kd,"unix",0,"system_pages"); }
+-   if (meminfo != NULL) { ksrphyserr = kstat_read(spl->kd,meminfo,NULL); }
+-   if (ksrphyserr != -1) {
+-      totalmem_pgs   = kstat_data_lookup( meminfo, "physmem" );
+-      lockedmem_pgs  = kstat_data_lookup( meminfo, "pageslocked" );
+-      pages          = kstat_data_lookup( meminfo, "pagestotal" );
+-
+-      pl->totalMem   = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
+-      pl->usedMem    = lockedmem_pgs->value.ui64 * PAGE_SIZE_KB;
+-      // Not sure how to implement this on Solaris - suggestions welcome!
+-      pl->cachedMem  = 0;     
+-      // Not really "buffers" but the best Solaris analogue that I can find to
+-      // "memory in use but not by programs or the kernel itself"
+-      pl->buffersMem = (totalmem_pgs->value.ui64 - pages->value.ui64) * PAGE_SIZE_KB;
+-    } else {
+-      // Fall back to basic sysconf if kstat isn't working
+-      pl->totalMem = sysconf(_SC_PHYS_PAGES) * PAGE_SIZE;
+-      pl->buffersMem = 0;
+-      pl->cachedMem  = 0;
+-      pl->usedMem    = pl->totalMem - (sysconf(_SC_AVPHYS_PAGES) * PAGE_SIZE);
++   if ( (meminfo = kstat_lookup(spl->kd,"unix",0,"system_pages")) != NULL) {
++      if ( (ksrphyserr = kstat_read(spl->kd,meminfo,NULL)) != -1) {
++         totalmem_pgs   = kstat_data_lookup( meminfo, "physmem" );
++         lockedmem_pgs  = kstat_data_lookup( meminfo, "pageslocked" );
++         pages          = kstat_data_lookup( meminfo, "pagestotal" );
++
++         pl->totalMem   = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
++         pl->usedMem    = lockedmem_pgs->value.ui64 * PAGE_SIZE_KB;
++         // Not sure how to implement this on Solaris - suggestions welcome!
++         pl->cachedMem  = 0;     
++         // Not really "buffers" but the best Solaris analogue that I can find to
++         // "memory in use but not by programs or the kernel itself"
++         pl->buffersMem = (totalmem_pgs->value.ui64 - pages->value.ui64) * PAGE_SIZE_KB;
++       }
+    }
+    
+    // Part 2 - swap
+-   nswap = swapctl(SC_GETNSWP, NULL);
+-   if (nswap >     0) { sl  = xMalloc((nswap * sizeof(swapent_t)) + sizeof(int)); }
+-   if (sl    != NULL) { spathbase = xMalloc( nswap * MAXPATHLEN ); }
+-   if (spathbase != NULL) { 
+-      spath = spathbase;
+-      swapdev = sl->swt_ent;
+-      for (int i = 0; i < nswap; i++, swapdev++) {
+-         swapdev->ste_path = spath;
+-         spath += MAXPATHLEN;
++   if ( (nswap = swapctl(SC_GETNSWP, NULL)) > 0) {
++      if ( (sl = xMalloc((nswap * sizeof(swapent_t)) + sizeof(int))) != NULL) {
++         if ( (spathbase = xMalloc( nswap * MAXPATHLEN )) != NULL) { 
++            spath = spathbase;
++            swapdev = sl->swt_ent;
++            for (int i = 0; i < nswap; i++, swapdev++) {
++               swapdev->ste_path = spath;
++               spath += MAXPATHLEN;
++            }
++         }
++         sl->swt_n = nswap;
+       }
+-      sl->swt_n = nswap;
+    }
+-   nswap = swapctl(SC_LIST, sl);
+-   if (nswap > 0) { 
++   if ( (nswap = swapctl(SC_LIST, sl)) > 0) { 
+       swapdev = sl->swt_ent;
+       for (int i = 0; i < nswap; i++, swapdev++) {
+          totalswap += swapdev->ste_pages;
+@@ -234,7 +242,7 @@ void ProcessList_delete(ProcessList* pl) {
+    SolarisProcessList* spl = (SolarisProcessList*) pl;
+    ProcessList_done(pl);
+    free(spl->cpus);
+-   if (spl->kd) kstat_close(spl->kd);
++   kstat_close(spl->kd);
+    free(spl);
+ }
+ 
+
+From 67e368914a1b03cbf18c4c7b678f424f5e18ad2e Mon Sep 17 00:00:00 2001
+From: Lion Yang <lion@aosc.io>
+Date: Sat, 25 Aug 2018 21:15:59 +0800
+Subject: [PATCH 02/28] htop.c: remove unused "--io" / "-i" (#811)
+
+Introduced from https://github.com/hishamhm/htop/commit/3383d8e5561dfc6fb2b65e0a194df94ccb5e08af (2.0.0) but never used.
+---
+ htop.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+--- htop-2.2.0/htop.c	2019-05-02 07:23:47.236745598 +0000
++++ htop-2.2.0/htop.c.new	2019-05-02 07:26:48.922293414 +0000
+@@ -87,13 +87,12 @@ static CommandLineSettings parseArgument
+       {"no-colour",no_argument,         0, 'C'},
+       {"tree",     no_argument,         0, 't'},
+       {"pid",      required_argument,   0, 'p'},
+-      {"io",       no_argument,         0, 'i'},
+       {0,0,0,0}
+    };
+ 
+    int opt, opti=0;
+    /* Parse arguments */
+-   while ((opt = getopt_long(argc, argv, "hvCst::d:u:p:i", long_opts, &opti))) {
++   while ((opt = getopt_long(argc, argv, "hvCs:td:u:p:", long_opts, &opti))) {
+       if (opt == EOF) break;
+       switch (opt) {
+          case 'h':
+
+From c39f710b52e857c750d661ece97313a5aa26908c Mon Sep 17 00:00:00 2001
+From: Alan Barr <a.barr@outlook.com>
+Date: Sat, 13 Oct 2018 19:04:59 +0100
+Subject: [PATCH 03/28] Remove duplicated if condition
+
+The for loop already handles i being < nPanels
+
+Raised by cppcheck
+---
+ ScreenManager.c | 8 +++-----
+ 1 file changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/ScreenManager.c b/ScreenManager.c
+index 05e1c024..06e90193 100644
+--- a/ScreenManager.c
++++ b/ScreenManager.c
+@@ -145,14 +145,12 @@ static void checkRecalculation(ScreenManager* this, double* oldTime, int* sortTi
+ }
+ 
+ static void ScreenManager_drawPanels(ScreenManager* this, int focus) {
+-   int nPanels = this->panelCount;
++   const int nPanels = this->panelCount;
+    for (int i = 0; i < nPanels; i++) {
+       Panel* panel = (Panel*) Vector_get(this->panels, i);
+       Panel_draw(panel, i == focus);
+-      if (i < nPanels) {
+-         if (this->orientation == HORIZONTAL) {
+-            mvvline(panel->y, panel->x+panel->w, ' ', panel->h+1);
+-         }
++      if (this->orientation == HORIZONTAL) {
++         mvvline(panel->y, panel->x+panel->w, ' ', panel->h+1);
+       }
+    }
+ }
+
+From 4cb58460e571832e5f80f7259f64dd6268fab1eb Mon Sep 17 00:00:00 2001
+From: Alan Barr <a.barr@outlook.com>
+Date: Sat, 13 Oct 2018 19:10:12 +0100
+Subject: [PATCH 04/28] Prevent possible NULL pointer deference
+
+Raised by cppcheck
+---
+ darwin/DarwinProcessList.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/darwin/DarwinProcessList.c b/darwin/DarwinProcessList.c
+index 4a580acc..09884480 100644
+--- a/darwin/DarwinProcessList.c
++++ b/darwin/DarwinProcessList.c
+@@ -84,9 +84,8 @@ void ProcessList_freeCPULoadInfo(processor_cpu_load_info_t *p) {
+        if(0 != munmap(*p, vm_page_size)) {
+            CRT_fatalError("Unable to free old CPU load information\n");
+        }
++       *p = NULL;
+    }
+-
+-   *p = NULL;
+ }
+ 
+ unsigned ProcessList_allocateCPULoadInfo(processor_cpu_load_info_t *p) {
+
+From b7b4200f854f667a917b7da8f92b3e0426131bd7 Mon Sep 17 00:00:00 2001
+From: Alan Barr <a.barr@outlook.com>
+Date: Sat, 13 Oct 2018 19:20:52 +0100
+Subject: [PATCH 05/28] Fix printf() unsigned placeholders
+
+Unsigned numbers should be using "%u".
+
+Raised by cppcheck
+---
+ Process.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/Process.c b/Process.c
+index 471f5299..d6e30ee7 100644
+--- a/Process.c
++++ b/Process.c
+@@ -228,7 +228,7 @@ void Process_humanNumber(RichString* str, unsigned long number, bool coloring) {
+    if(number >= (10 * ONE_DECIMAL_M)) {
+       #ifdef __LP64__
+       if(number >= (100 * ONE_DECIMAL_G)) {
+-         len = snprintf(buffer, 10, "%4ldT ", number / ONE_G);
++         len = snprintf(buffer, 10, "%4luT ", number / ONE_G);
+          RichString_appendn(str, largeNumberColor, buffer, len);
+          return;
+       } else if (number >= (1000 * ONE_DECIMAL_M)) {
+@@ -238,7 +238,7 @@ void Process_humanNumber(RichString* str, unsigned long number, bool coloring) {
+       }
+       #endif
+       if(number >= (100 * ONE_DECIMAL_M)) {
+-         len = snprintf(buffer, 10, "%4ldG ", number / ONE_M);
++         len = snprintf(buffer, 10, "%4luG ", number / ONE_M);
+          RichString_appendn(str, largeNumberColor, buffer, len);
+          return;
+       }
+@@ -246,11 +246,11 @@ void Process_humanNumber(RichString* str, unsigned long number, bool coloring) {
+       RichString_appendn(str, largeNumberColor, buffer, len);
+       return;
+    } else if (number >= 100000) {
+-      len = snprintf(buffer, 10, "%4ldM ", number / ONE_K);
++      len = snprintf(buffer, 10, "%4luM ", number / ONE_K);
+       RichString_appendn(str, processMegabytesColor, buffer, len);
+       return;
+    } else if (number >= 1000) {
+-      len = snprintf(buffer, 10, "%2ld", number/1000);
++      len = snprintf(buffer, 10, "%2lu", number/1000);
+       RichString_appendn(str, processMegabytesColor, buffer, len);
+       number %= 1000;
+       len = snprintf(buffer, 10, "%03lu ", number);
+@@ -278,7 +278,7 @@ void Process_colorNumber(RichString* str, unsigned long long number, bool colori
+       int len = snprintf(buffer, 13, "    no perm ");
+       RichString_appendn(str, CRT_colors[PROCESS_SHADOW], buffer, len);
+    } else if (number > 10000000000) {
+-      xSnprintf(buffer, 13, "%11lld ", number / 1000);
++      xSnprintf(buffer, 13, "%11llu ", number / 1000);
+       RichString_appendn(str, largeNumberColor, buffer, 5);
+       RichString_appendn(str, processMegabytesColor, buffer+5, 3);
+       RichString_appendn(str, processColor, buffer+8, 4);
+@@ -380,9 +380,9 @@ void Process_writeField(Process* this, RichString* str, ProcessField field) {
+    switch (field) {
+    case PERCENT_CPU: {
+       if (this->percent_cpu > 999.9) {
+-         xSnprintf(buffer, n, "%4d ", (unsigned int)this->percent_cpu); 
++         xSnprintf(buffer, n, "%4u ", (unsigned int)this->percent_cpu); 
+       } else if (this->percent_cpu > 99.9) {
+-         xSnprintf(buffer, n, "%3d. ", (unsigned int)this->percent_cpu); 
++         xSnprintf(buffer, n, "%3u. ", (unsigned int)this->percent_cpu); 
+       } else {
+          xSnprintf(buffer, n, "%4.1f ", this->percent_cpu);
+       }
+
+From 37060d6d7e9e5882646b24fd26064e936d223c61 Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Thu, 3 Jan 2019 08:16:10 -0500
+Subject: [PATCH 06/28] Solaris: temporary fix to macro name collision in
+ sysinfo.h for CPU_KERNEL
+
+---
+ Action.c     |  4 ++--
+ CPUMeter.c   |  6 +++---
+ CRT.c        | 14 +++++++-------
+ CRT.h        |  2 +-
+ TasksMeter.c |  2 +-
+ 5 files changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/Action.c b/Action.c
+index 9a7c3c56..a73e8767 100644
+--- a/Action.c
++++ b/Action.c
+@@ -463,7 +463,7 @@ static Htop_Reaction actionHelp(State* st) {
+    if (settings->detailedCPUTime) {
+       addattrstr(CRT_colors[CPU_NICE_TEXT], "low"); addstr("/");
+       addattrstr(CRT_colors[CPU_NORMAL], "normal"); addstr("/");
+-      addattrstr(CRT_colors[CPU_KERNEL], "kernel"); addstr("/");
++      addattrstr(CRT_colors[HTOP_CPU_KERNEL], "kernel"); addstr("/");
+       addattrstr(CRT_colors[CPU_IRQ], "irq"); addstr("/");
+       addattrstr(CRT_colors[CPU_SOFTIRQ], "soft-irq"); addstr("/");
+       addattrstr(CRT_colors[CPU_STEAL], "steal"); addstr("/");
+@@ -473,7 +473,7 @@ static Htop_Reaction actionHelp(State* s
+    } else {
+       addattrstr(CRT_colors[CPU_NICE_TEXT], "low-priority"); addstr("/");
+       addattrstr(CRT_colors[CPU_NORMAL], "normal"); addstr("/");
+-      addattrstr(CRT_colors[CPU_KERNEL], "kernel"); addstr("/");
++      addattrstr(CRT_colors[HTOP_CPU_KERNEL], "kernel"); addstr("/");
+       addattrstr(CRT_colors[CPU_STEAL], "virtualiz");
+       addattrstr(CRT_colors[BAR_SHADOW], "               used%");
+    }
+diff --git a/CPUMeter.c b/CPUMeter.c
+index de5490df..8c68dbe3 100644
+--- a/CPUMeter.c
++++ b/CPUMeter.c
+@@ -34,7 +34,7 @@ typedef enum {
+ }*/
+ 
+ int CPUMeter_attributes[] = {
+-   CPU_NICE, CPU_NORMAL, CPU_KERNEL, CPU_IRQ, CPU_SOFTIRQ, CPU_STEAL, CPU_GUEST, CPU_IOWAIT
++   CPU_NICE, CPU_NORMAL, HTOP_CPU_KERNEL, CPU_IRQ, CPU_SOFTIRQ, CPU_STEAL, CPU_GUEST, CPU_IOWAIT
+ };
+ 
+ #ifndef MIN
+@@ -80,7 +80,7 @@ static void CPUMeter_display(Object* cast, RichString* out) {
+    if (this->pl->settings->detailedCPUTime) {
+       xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_KERNEL]);
+       RichString_append(out, CRT_colors[METER_TEXT], "sy:");
+-      RichString_append(out, CRT_colors[CPU_KERNEL], buffer);
++      RichString_append(out, CRT_colors[HTOP_CPU_KERNEL], buffer);
+       xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_NICE]);
+       RichString_append(out, CRT_colors[METER_TEXT], "ni:");
+       RichString_append(out, CRT_colors[CPU_NICE_TEXT], buffer);
+@@ -106,7 +106,7 @@ static void CPUMeter_display(Object* cast, RichString* out) {
+    } else {
+       xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_KERNEL]);
+       RichString_append(out, CRT_colors[METER_TEXT], "sys:");
+-      RichString_append(out, CRT_colors[CPU_KERNEL], buffer);
++      RichString_append(out, CRT_colors[HTOP_CPU_KERNEL], buffer);
+       xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_NICE]);
+       RichString_append(out, CRT_colors[METER_TEXT], "low:");
+       RichString_append(out, CRT_colors[CPU_NICE_TEXT], buffer);
+diff --git a/CRT.c b/CRT.c
+index ca9a10dd..bedb8d85 100644
+--- a/CRT.c
++++ b/CRT.c
+@@ -122,7 +122,7 @@ typedef enum ColorElements_ {
+    CPU_NICE,
+    CPU_NICE_TEXT,
+    CPU_NORMAL,
+-   CPU_KERNEL,
++   HTOP_CPU_KERNEL,
+    CPU_IOWAIT,
+    CPU_IRQ,
+    CPU_SOFTIRQ,
+@@ -226,7 +226,7 @@ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
+       [CPU_NICE] = ColorPair(Blue,Black),
+       [CPU_NICE_TEXT] = A_BOLD | ColorPair(Blue,Black),
+       [CPU_NORMAL] = ColorPair(Green,Black),
+-      [CPU_KERNEL] = ColorPair(Red,Black),
++      [HTOP_CPU_KERNEL] = ColorPair(Red,Black),
+       [CPU_IOWAIT] = A_BOLD | ColorPair(Black, Black),
+       [CPU_IRQ] = ColorPair(Yellow,Black),
+       [CPU_SOFTIRQ] = ColorPair(Magenta,Black),
+@@ -285,7 +285,7 @@ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
+       [CPU_NICE] = A_NORMAL,
+       [CPU_NICE_TEXT] = A_NORMAL,
+       [CPU_NORMAL] = A_BOLD,
+-      [CPU_KERNEL] = A_BOLD,
++      [HTOP_CPU_KERNEL] = A_BOLD,
+       [CPU_IOWAIT] = A_NORMAL,
+       [CPU_IRQ] = A_BOLD,
+       [CPU_SOFTIRQ] = A_BOLD,
+@@ -344,7 +344,7 @@ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
+       [CPU_NICE] = ColorPair(Cyan,White),
+       [CPU_NICE_TEXT] = ColorPair(Cyan,White),
+       [CPU_NORMAL] = ColorPair(Green,White),
+-      [CPU_KERNEL] = ColorPair(Red,White),
++      [HTOP_CPU_KERNEL] = ColorPair(Red,White),
+       [CPU_IOWAIT] = A_BOLD | ColorPair(Black, White),
+       [CPU_IRQ] = ColorPair(Blue,White),
+       [CPU_SOFTIRQ] = ColorPair(Blue,White),
+@@ -403,7 +403,7 @@ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
+       [CPU_NICE] = ColorPair(Cyan,Black),
+       [CPU_NICE_TEXT] = ColorPair(Cyan,Black),
+       [CPU_NORMAL] = ColorPair(Green,Black),
+-      [CPU_KERNEL] = ColorPair(Red,Black),
++      [HTOP_CPU_KERNEL] = ColorPair(Red,Black),
+       [CPU_IOWAIT] = A_BOLD | ColorPair(Black, Black),
+       [CPU_IRQ] = A_BOLD | ColorPair(Blue,Black),
+       [CPU_SOFTIRQ] = ColorPair(Blue,Black),
+@@ -462,7 +462,7 @@ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
+       [CPU_NICE] = A_BOLD | ColorPair(Cyan,Blue),
+       [CPU_NICE_TEXT] = A_BOLD | ColorPair(Cyan,Blue),
+       [CPU_NORMAL] = A_BOLD | ColorPair(Green,Blue),
+-      [CPU_KERNEL] = A_BOLD | ColorPair(Red,Blue),
++      [HTOP_CPU_KERNEL] = A_BOLD | ColorPair(Red,Blue),
+       [CPU_IOWAIT] = A_BOLD | ColorPair(Blue,Blue),
+       [CPU_IRQ] = A_BOLD | ColorPair(Black,Blue),
+       [CPU_SOFTIRQ] = ColorPair(Black,Blue),
+@@ -521,7 +521,7 @@ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
+       [CPU_NICE] = ColorPair(Blue,Black),
+       [CPU_NICE_TEXT] = A_BOLD | ColorPair(Blue,Black),
+       [CPU_NORMAL] = ColorPair(Green,Black),
+-      [CPU_KERNEL] = ColorPair(Red,Black),
++      [HTOP_CPU_KERNEL] = ColorPair(Red,Black),
+       [CPU_IOWAIT] = ColorPair(Yellow,Black),
+       [CPU_IRQ] = A_BOLD | ColorPair(Blue,Black),
+       [CPU_SOFTIRQ] = ColorPair(Blue,Black),
+diff --git a/CRT.h b/CRT.h
+index 933fe068..7fb5e8b4 100644
+--- a/CRT.h
++++ b/CRT.h
+@@ -110,7 +110,7 @@ typedef enum ColorElements_ {
+    CPU_NICE,
+    CPU_NICE_TEXT,
+    CPU_NORMAL,
+-   CPU_KERNEL,
++   HTOP_CPU_KERNEL,
+    CPU_IOWAIT,
+    CPU_IRQ,
+    CPU_SOFTIRQ,
+diff --git a/TasksMeter.c b/TasksMeter.c
+index f56c8613..8132e5ae 100644
+--- a/TasksMeter.c
++++ b/TasksMeter.c
+@@ -15,7 +15,7 @@ in the source distribution for its full text.
+ }*/
+ 
+ int TasksMeter_attributes[] = {
+-   CPU_KERNEL, PROCESS_THREAD, PROCESS, TASKS_RUNNING
++   HTOP_CPU_KERNEL, PROCESS_THREAD, PROCESS, TASKS_RUNNING
+ };
+ 
+ static void TasksMeter_updateValues(Meter* this, char* buffer, int len) {
+
+From 04ed0512c0e747724e68d3fcc7b76180ece8c20c Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Thu, 3 Jan 2019 08:31:36 -0500
+Subject: [PATCH 07/28] Solaris: Fix some ambiguity in a condition test which
+ caused errors on recent GCC versions
+
+---
+ solaris/SolarisProcessList.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index f3170e65..3786ebf4 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -136,8 +136,8 @@ static inline void SolarisProcessList_scanCPUTime(ProcessList* pl) {
+          }
+       }
+ 
+-      if !( (idletime != NULL) && (intrtime != NULL)
+-           && (krnltime != NULL) && (usertime != NULL) ) {
++      if (!((idletime != NULL) && (intrtime != NULL)
++           && (krnltime != NULL) && (usertime != NULL))) {
+          fprintf(stderr,"\nCalls to kstat do not appear to be working.\n");
+          abort();
+       }
+
+From f11ddd04a446abd4345c0bf6819cdb30d2498e37 Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Thu, 3 Jan 2019 11:32:43 -0500
+Subject: [PATCH 08/28] Prefix color names from CRT.h with COLOR_ to avoid
+ potential collisions with system headers
+
+---
+ Action.c                           |  74 +--
+ BatteryMeter.c                     |   2 +-
+ CPUMeter.c                         |  48 +-
+ CRT.c                              | 798 ++++++++++++++---------------
+ CRT.h                              | 114 ++---
+ CheckItem.c                        |  10 +-
+ ClockMeter.c                       |   2 +-
+ ColorsPanel.c                      |   4 +-
+ ColumnsPanel.c                     |   2 +-
+ FunctionBar.c                      |  10 +-
+ Header.c                           |   2 +-
+ HostnameMeter.c                    |   2 +-
+ IncSet.c                           |   2 +-
+ InfoScreen.c                       |   4 +-
+ ListItem.c                         |   4 +-
+ LoadAverageMeter.c                 |  12 +-
+ MainPanel.c                        |   2 +-
+ MemoryMeter.c                      |  18 +-
+ Meter.c                            |  28 +-
+ MetersPanel.c                      |   4 +-
+ Panel.c                            |  16 +-
+ Process.c                          |  68 +--
+ ProcessList.c                      |   4 +-
+ SwapMeter.c                        |  10 +-
+ TasksMeter.c                       |  22 +-
+ TraceScreen.c                      |   4 +-
+ UptimeMeter.c                      |   2 +-
+ dragonflybsd/DragonFlyBSDProcess.c |   2 +-
+ freebsd/FreeBSDProcess.c           |   2 +-
+ htop.c                             |   4 +-
+ linux/LinuxProcess.c               |   8 +-
+ openbsd/OpenBSDProcess.c           |   2 +-
+ solaris/SolarisProcess.c           |   2 +-
+ 33 files changed, 644 insertions(+), 644 deletions(-)
+
+diff --git a/Action.c b/Action.c
+index a73e8767..63448b8c 100644
+--- a/Action.c
++++ b/Action.c
+@@ -354,7 +354,7 @@ static Htop_Reaction actionFilterByUser(State* st) {
+ 
+ Htop_Reaction Action_follow(State* st) {
+    st->pl->following = MainPanel_selectedPid((MainPanel*)st->panel);
+-   Panel_setSelectionColor(st->panel, CRT_colors[PANEL_SELECTION_FOLLOW]);
++   Panel_setSelectionColor(st->panel, CRT_colors[COLOR_PANEL_SELECTION_FOLLOW]);
+    return HTOP_KEEP_FOLLOWING;
+ }
+ 
+@@ -448,7 +448,7 @@ static Htop_Reaction actionHelp(State* st) {
+    Settings* settings = st->settings;
+ 
+    clear();
+-   attrset(CRT_colors[HELP_BOLD]);
++   attrset(CRT_colors[COLOR_HELP_BOLD]);
+ 
+    for (int i = 0; i < LINES-1; i++)
+       mvhline(i, 0, ' ', COLS);
+@@ -459,40 +459,40 @@ static Htop_Reaction actionHelp(State* s
+    attrset(CRT_colors[DEFAULT_COLOR]);
+    mvaddstr(3, 0, "CPU usage bar: ");
+    #define addattrstr(a,s) attrset(a);addstr(s)
+-   addattrstr(CRT_colors[BAR_BORDER], "[");
++   addattrstr(CRT_colors[COLOR_BAR_BORDER], "[");
+    if (settings->detailedCPUTime) {
+-      addattrstr(CRT_colors[CPU_NICE_TEXT], "low"); addstr("/");
+-      addattrstr(CRT_colors[CPU_NORMAL], "normal"); addstr("/");
+-      addattrstr(CRT_colors[HTOP_CPU_KERNEL], "kernel"); addstr("/");
+-      addattrstr(CRT_colors[CPU_IRQ], "irq"); addstr("/");
+-      addattrstr(CRT_colors[CPU_SOFTIRQ], "soft-irq"); addstr("/");
+-      addattrstr(CRT_colors[CPU_STEAL], "steal"); addstr("/");
+-      addattrstr(CRT_colors[CPU_GUEST], "guest"); addstr("/");
+-      addattrstr(CRT_colors[CPU_IOWAIT], "io-wait");
+-      addattrstr(CRT_colors[BAR_SHADOW], " used%");
++      addattrstr(CRT_colors[COLOR_CPU_NICE_TEXT], "low"); addstr("/");
++      addattrstr(CRT_colors[COLOR_CPU_NORMAL], "normal"); addstr("/");
++      addattrstr(CRT_colors[COLOR_CPU_KERNEL], "kernel"); addstr("/");
++      addattrstr(CRT_colors[COLOR_CPU_IRQ], "irq"); addstr("/");
++      addattrstr(CRT_colors[COLOR_CPU_SOFTIRQ], "soft-irq"); addstr("/");
++      addattrstr(CRT_colors[COLOR_CPU_STEAL], "steal"); addstr("/");
++      addattrstr(CRT_colors[COLOR_CPU_GUEST], "guest"); addstr("/");
++      addattrstr(CRT_colors[COLOR_CPU_IOWAIT], "io-wait");
++      addattrstr(CRT_colors[COLOR_BAR_SHADOW], " used%");
+    } else {
+-      addattrstr(CRT_colors[CPU_NICE_TEXT], "low-priority"); addstr("/");
+-      addattrstr(CRT_colors[CPU_NORMAL], "normal"); addstr("/");
+-      addattrstr(CRT_colors[HTOP_CPU_KERNEL], "kernel"); addstr("/");
+-      addattrstr(CRT_colors[CPU_STEAL], "virtualiz");
+-      addattrstr(CRT_colors[BAR_SHADOW], "               used%");
++      addattrstr(CRT_colors[COLOR_CPU_NICE_TEXT], "low-priority"); addstr("/");
++      addattrstr(CRT_colors[COLOR_CPU_NORMAL], "normal"); addstr("/");
++      addattrstr(CRT_colors[COLOR_CPU_KERNEL], "kernel"); addstr("/");
++      addattrstr(CRT_colors[COLOR_CPU_GUEST], "virtualiz");
++      addattrstr(CRT_colors[COLOR_BAR_SHADOW], "               used%");
+    }
+-   addattrstr(CRT_colors[BAR_BORDER], "]");
+-   attrset(CRT_colors[DEFAULT_COLOR]);
++   addattrstr(CRT_colors[COLOR_BAR_BORDER], "]");
++   attrset(CRT_colors[COLOR_DEFAULT_COLOR]);
+    mvaddstr(4, 0, "Memory bar:    ");
+-   addattrstr(CRT_colors[BAR_BORDER], "[");
+-   addattrstr(CRT_colors[MEMORY_USED], "used"); addstr("/");
+-   addattrstr(CRT_colors[MEMORY_BUFFERS_TEXT], "buffers"); addstr("/");
+-   addattrstr(CRT_colors[MEMORY_CACHE], "cache");
+-   addattrstr(CRT_colors[BAR_SHADOW], "                            used/total");
+-   addattrstr(CRT_colors[BAR_BORDER], "]");
+-   attrset(CRT_colors[DEFAULT_COLOR]);
++   addattrstr(CRT_colors[COLOR_BAR_BORDER], "[");
++   addattrstr(CRT_colors[COLOR_MEMORY_USED], "used"); addstr("/");
++   addattrstr(CRT_colors[COLOR_MEMORY_BUFFERS_TEXT], "buffers"); addstr("/");
++   addattrstr(CRT_colors[COLOR_MEMORY_CACHE], "cache");
++   addattrstr(CRT_colors[COLOR_BAR_SHADOW], "                            used/total");
++   addattrstr(CRT_colors[COLOR_BAR_BORDER], "]");
++   attrset(CRT_colors[COLOR_DEFAULT_COLOR]);
+    mvaddstr(5, 0, "Swap bar:      ");
+-   addattrstr(CRT_colors[BAR_BORDER], "[");
+-   addattrstr(CRT_colors[SWAP], "used");
+-   addattrstr(CRT_colors[BAR_SHADOW], "                                          used/total");
+-   addattrstr(CRT_colors[BAR_BORDER], "]");
+-   attrset(CRT_colors[DEFAULT_COLOR]);
++   addattrstr(CRT_colors[COLOR_BAR_BORDER], "[");
++   addattrstr(CRT_colors[COLOR_SWAP], "used");
++   addattrstr(CRT_colors[COLOR_BAR_SHADOW], "                                          used/total");
++   addattrstr(CRT_colors[COLOR_BAR_BORDER], "]");
++   attrset(CRT_colors[COLOR_DEFAULT_COLOR]);
+    mvaddstr(6,0, "Type and layout of header meters are configurable in the setup screen.");
+    if (CRT_colorScheme == COLORSCHEME_MONOCHROME) {
+       mvaddstr(7, 0, "In monochrome, meters display as different chars, in order: |#*@$%&.");
+@@ -500,17 +500,17 @@ static Htop_Reaction actionHelp(State* st) {
+    mvaddstr( 8, 0, " Status: R: running; S: sleeping; T: traced/stopped; Z: zombie; D: disk sleep");
+    for (int i = 0; helpLeft[i].info; i++) { mvaddstr(9+i, 9,  helpLeft[i].info); }
+    for (int i = 0; helpRight[i].info; i++) { mvaddstr(9+i, 49, helpRight[i].info); }
+-   attrset(CRT_colors[HELP_BOLD]);
++   attrset(CRT_colors[COLOR_HELP_BOLD]);
+    for (int i = 0; helpLeft[i].key;  i++) { mvaddstr(9+i, 0,  helpLeft[i].key); }
+    for (int i = 0; helpRight[i].key; i++) { mvaddstr(9+i, 40, helpRight[i].key); }
+-   attrset(CRT_colors[PROCESS_THREAD]);
++   attrset(CRT_colors[COLOR_PROCESS_THREAD]);
+    mvaddstr(16, 32, "threads");
+    mvaddstr(17, 26, "threads");
+-   attrset(CRT_colors[DEFAULT_COLOR]);
++   attrset(CRT_colors[COLOR_DEFAULT_COLOR]);
+ 
+-   attrset(CRT_colors[HELP_BOLD]);
++   attrset(CRT_colors[COLOR_HELP_BOLD]);
+    mvaddstr(23,0, "Press any key to return.");
+-   attrset(CRT_colors[DEFAULT_COLOR]);
++   attrset(CRT_colors[COLOR_DEFAULT_COLOR]);
+    refresh();
+    CRT_readKey();
+    clear();
+diff --git a/BatteryMeter.c b/BatteryMeter.c
+index 214248e2..352c2cd2 100644
+--- a/BatteryMeter.c
++++ b/BatteryMeter.c
+@@ -29,7 +29,7 @@ typedef enum ACPresence_ {
+ }*/
+ 
+ int BatteryMeter_attributes[] = {
+-   BATTERY
++   COLOR_BATTERY
+ };
+ 
+ static void BatteryMeter_updateValues(Meter * this, char *buffer, int len) {
+diff --git a/CPUMeter.c b/CPUMeter.c
+index 8c68dbe3..fe0db34e 100644
+--- a/CPUMeter.c
++++ b/CPUMeter.c
+@@ -34,7 +34,7 @@ typedef enum {
+ }*/
+ 
+ int CPUMeter_attributes[] = {
+-   CPU_NICE, CPU_NORMAL, HTOP_CPU_KERNEL, CPU_IRQ, CPU_SOFTIRQ, CPU_STEAL, CPU_GUEST, CPU_IOWAIT
++   COLOR_CPU_NICE, COLOR_CPU_NORMAL, COLOR_CPU_KERNEL, COLOR_CPU_IRQ, COLOR_CPU_SOFTIRQ, COLOR_CPU_STEAL, COLOR_CPU_GUEST, COLOR_CPU_IOWAIT
+ };
+ 
+ #ifndef MIN
+@@ -71,49 +71,49 @@ static void CPUMeter_display(Object* cast, RichString* out) {
+    Meter* this = (Meter*)cast;
+    RichString_prune(out);
+    if (this->param > this->pl->cpuCount) {
+-      RichString_append(out, CRT_colors[METER_TEXT], "absent");
++      RichString_append(out, CRT_colors[COLOR_METER_TEXT], "absent");
+       return;
+    }
+    xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_NORMAL]);
+-   RichString_append(out, CRT_colors[METER_TEXT], ":");
+-   RichString_append(out, CRT_colors[CPU_NORMAL], buffer);
++   RichString_append(out, CRT_colors[COLOR_METER_TEXT], ":");
++   RichString_append(out, CRT_colors[COLOR_CPU_NORMAL], buffer);
+    if (this->pl->settings->detailedCPUTime) {
+       xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_KERNEL]);
+-      RichString_append(out, CRT_colors[METER_TEXT], "sy:");
+-      RichString_append(out, CRT_colors[HTOP_CPU_KERNEL], buffer);
++      RichString_append(out, CRT_colors[COLOR_METER_TEXT], "sy:");
++      RichString_append(out, CRT_colors[COLOR_CPU_KERNEL], buffer);
+       xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_NICE]);
+-      RichString_append(out, CRT_colors[METER_TEXT], "ni:");
+-      RichString_append(out, CRT_colors[CPU_NICE_TEXT], buffer);
++      RichString_append(out, CRT_colors[COLOR_METER_TEXT], "ni:");
++      RichString_append(out, CRT_colors[COLOR_CPU_NICE_TEXT], buffer);
+       xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_IRQ]);
+-      RichString_append(out, CRT_colors[METER_TEXT], "hi:");
+-      RichString_append(out, CRT_colors[CPU_IRQ], buffer);
++      RichString_append(out, CRT_colors[COLOR_METER_TEXT], "hi:");
++      RichString_append(out, CRT_colors[COLOR_CPU_IRQ], buffer);
+       xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_SOFTIRQ]);
+-      RichString_append(out, CRT_colors[METER_TEXT], "si:");
+-      RichString_append(out, CRT_colors[CPU_SOFTIRQ], buffer);
++      RichString_append(out, CRT_colors[COLOR_METER_TEXT], "si:");
++      RichString_append(out, CRT_colors[COLOR_CPU_SOFTIRQ], buffer);
+       if (this->values[CPU_METER_STEAL]) {
+          xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_STEAL]);
+-         RichString_append(out, CRT_colors[METER_TEXT], "st:");
+-         RichString_append(out, CRT_colors[CPU_STEAL], buffer);
++         RichString_append(out, CRT_colors[COLOR_METER_TEXT], "st:");
++         RichString_append(out, CRT_colors[COLOR_CPU_STEAL], buffer);
+       }
+       if (this->values[CPU_METER_GUEST]) {
+          xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_GUEST]);
+-         RichString_append(out, CRT_colors[METER_TEXT], "gu:");
+-         RichString_append(out, CRT_colors[CPU_GUEST], buffer);
++         RichString_append(out, CRT_colors[COLOR_METER_TEXT], "gu:");
++         RichString_append(out, CRT_colors[COLOR_CPU_GUEST], buffer);
+       }
+       xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_IOWAIT]);
+-      RichString_append(out, CRT_colors[METER_TEXT], "wa:");
+-      RichString_append(out, CRT_colors[CPU_IOWAIT], buffer);
++      RichString_append(out, CRT_colors[COLOR_METER_TEXT], "wa:");
++      RichString_append(out, CRT_colors[COLOR_CPU_IOWAIT], buffer);
+    } else {
+       xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_KERNEL]);
+-      RichString_append(out, CRT_colors[METER_TEXT], "sys:");
+-      RichString_append(out, CRT_colors[HTOP_CPU_KERNEL], buffer);
++      RichString_append(out, CRT_colors[COLOR_METER_TEXT], "sys:");
++      RichString_append(out, CRT_colors[COLOR_CPU_KERNEL], buffer);
+       xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_NICE]);
+-      RichString_append(out, CRT_colors[METER_TEXT], "low:");
+-      RichString_append(out, CRT_colors[CPU_NICE_TEXT], buffer);
++      RichString_append(out, CRT_colors[COLOR_METER_TEXT], "low:");
++      RichString_append(out, CRT_colors[COLOR_CPU_NICE_TEXT], buffer);
+       if (this->values[CPU_METER_IRQ]) {
+          xSnprintf(buffer, sizeof(buffer), "%5.1f%% ", this->values[CPU_METER_IRQ]);
+-         RichString_append(out, CRT_colors[METER_TEXT], "vir:");
+-         RichString_append(out, CRT_colors[CPU_GUEST], buffer);
++         RichString_append(out, CRT_colors[COLOR_METER_TEXT], "vir:");
++         RichString_append(out, CRT_colors[COLOR_CPU_GUEST], buffer);
+       }
+    }
+ }
+diff --git a/CRT.c b/CRT.c
+index bedb8d85..94ac8a49 100644
+--- a/CRT.c
++++ b/CRT.c
+@@ -71,63 +71,63 @@ typedef enum ColorSchemes_ {
+ } ColorSchemes;
+ 
+ typedef enum ColorElements_ {
+-   RESET_COLOR,
+-   DEFAULT_COLOR,
+-   FUNCTION_BAR,
+-   FUNCTION_KEY,
+-   FAILED_SEARCH,
+-   PANEL_HEADER_FOCUS,
+-   PANEL_HEADER_UNFOCUS,
+-   PANEL_SELECTION_FOCUS,
+-   PANEL_SELECTION_FOLLOW,
+-   PANEL_SELECTION_UNFOCUS,
+-   LARGE_NUMBER,
+-   METER_TEXT,
+-   METER_VALUE,
+-   LED_COLOR,
+-   UPTIME,
+-   BATTERY,
+-   TASKS_RUNNING,
+-   SWAP,
+-   PROCESS,
+-   PROCESS_SHADOW,
+-   PROCESS_TAG,
+-   PROCESS_MEGABYTES,
+-   PROCESS_TREE,
+-   PROCESS_R_STATE,
+-   PROCESS_D_STATE,
+-   PROCESS_BASENAME,
+-   PROCESS_HIGH_PRIORITY,
+-   PROCESS_LOW_PRIORITY,
+-   PROCESS_THREAD,
+-   PROCESS_THREAD_BASENAME,
+-   BAR_BORDER,
+-   BAR_SHADOW,
+-   GRAPH_1,
+-   GRAPH_2,
+-   MEMORY_USED,
+-   MEMORY_BUFFERS,
+-   MEMORY_BUFFERS_TEXT,
+-   MEMORY_CACHE,
+-   LOAD,
+-   LOAD_AVERAGE_FIFTEEN,
+-   LOAD_AVERAGE_FIVE,
+-   LOAD_AVERAGE_ONE,
+-   CHECK_BOX,
+-   CHECK_MARK,
+-   CHECK_TEXT,
+-   CLOCK,
+-   HELP_BOLD,
+-   HOSTNAME,
+-   CPU_NICE,
+-   CPU_NICE_TEXT,
+-   CPU_NORMAL,
+-   HTOP_CPU_KERNEL,
+-   CPU_IOWAIT,
+-   CPU_IRQ,
+-   CPU_SOFTIRQ,
+-   CPU_STEAL,
+-   CPU_GUEST,
++   COLOR_RESET_COLOR,
++   COLOR_DEFAULT_COLOR,
++   COLOR_FUNCTION_BAR,
++   COLOR_FUNCTION_KEY,
++   COLOR_FAILED_SEARCH,
++   COLOR_PANEL_HEADER_FOCUS,
++   COLOR_PANEL_HEADER_UNFOCUS,
++   COLOR_PANEL_SELECTION_FOCUS,
++   COLOR_PANEL_SELECTION_FOLLOW,
++   COLOR_PANEL_SELECTION_UNFOCUS,
++   COLOR_LARGE_NUMBER,
++   COLOR_METER_TEXT,
++   COLOR_METER_VALUE,
++   COLOR_LED_COLOR,
++   COLOR_UPTIME,
++   COLOR_BATTERY,
++   COLOR_TASKS_RUNNING,
++   COLOR_SWAP,
++   COLOR_PROCESS,
++   COLOR_PROCESS_SHADOW,
++   COLOR_PROCESS_TAG,
++   COLOR_PROCESS_MEGABYTES,
++   COLOR_PROCESS_TREE,
++   COLOR_PROCESS_R_STATE,
++   COLOR_PROCESS_D_STATE,
++   COLOR_PROCESS_BASENAME,
++   COLOR_PROCESS_HIGH_PRIORITY,
++   COLOR_PROCESS_LOW_PRIORITY,
++   COLOR_PROCESS_THREAD,
++   COLOR_PROCESS_THREAD_BASENAME,
++   COLOR_BAR_BORDER,
++   COLOR_BAR_SHADOW,
++   COLOR_GRAPH_1,
++   COLOR_GRAPH_2,
++   COLOR_MEMORY_USED,
++   COLOR_MEMORY_BUFFERS,
++   COLOR_MEMORY_BUFFERS_TEXT,
++   COLOR_MEMORY_CACHE,
++   COLOR_LOAD,
++   COLOR_LOAD_AVERAGE_FIFTEEN,
++   COLOR_LOAD_AVERAGE_FIVE,
++   COLOR_LOAD_AVERAGE_ONE,
++   COLOR_CHECK_BOX,
++   COLOR_CHECK_MARK,
++   COLOR_CHECK_TEXT,
++   COLOR_CLOCK,
++   COLOR_HELP_BOLD,
++   COLOR_HOSTNAME,
++   COLOR_CPU_NICE,
++   COLOR_CPU_NICE_TEXT,
++   COLOR_CPU_NORMAL,
++   COLOR_CPU_KERNEL,
++   COLOR_CPU_IOWAIT,
++   COLOR_CPU_IRQ,
++   COLOR_CPU_SOFTIRQ,
++   COLOR_CPU_STEAL,
++   COLOR_CPU_GUEST,
+    LAST_COLORELEMENT
+ } ColorElements;
+ 
+@@ -175,358 +175,358 @@ int* CRT_colors;
+ 
+ int CRT_colorSchemes[LAST_COLORSCHEME][LAST_COLORELEMENT] = {
+    [COLORSCHEME_DEFAULT] = {
+-      [RESET_COLOR] = ColorPair(White,Black),
+-      [DEFAULT_COLOR] = ColorPair(White,Black),
+-      [FUNCTION_BAR] = ColorPair(Black,Cyan),
+-      [FUNCTION_KEY] = ColorPair(White,Black),
+-      [PANEL_HEADER_FOCUS] = ColorPair(Black,Green),
+-      [PANEL_HEADER_UNFOCUS] = ColorPair(Black,Green),
+-      [PANEL_SELECTION_FOCUS] = ColorPair(Black,Cyan),
+-      [PANEL_SELECTION_FOLLOW] = ColorPair(Black,Yellow),
+-      [PANEL_SELECTION_UNFOCUS] = ColorPair(Black,White),
+-      [FAILED_SEARCH] = ColorPair(Red,Cyan),
+-      [UPTIME] = A_BOLD | ColorPair(Cyan,Black),
+-      [BATTERY] = A_BOLD | ColorPair(Cyan,Black),
+-      [LARGE_NUMBER] = A_BOLD | ColorPair(Red,Black),
+-      [METER_TEXT] = ColorPair(Cyan,Black),
+-      [METER_VALUE] = A_BOLD | ColorPair(Cyan,Black),
+-      [LED_COLOR] = ColorPair(Green,Black),
+-      [TASKS_RUNNING] = A_BOLD | ColorPair(Green,Black),
+-      [PROCESS] = A_NORMAL,
+-      [PROCESS_SHADOW] = A_BOLD | ColorPairGrayBlack,
+-      [PROCESS_TAG] = A_BOLD | ColorPair(Yellow,Black),
+-      [PROCESS_MEGABYTES] = ColorPair(Cyan,Black),
+-      [PROCESS_BASENAME] = A_BOLD | ColorPair(Cyan,Black),
+-      [PROCESS_TREE] = ColorPair(Cyan,Black),
+-      [PROCESS_R_STATE] = ColorPair(Green,Black),
+-      [PROCESS_D_STATE] = A_BOLD | ColorPair(Red,Black),
+-      [PROCESS_HIGH_PRIORITY] = ColorPair(Red,Black),
+-      [PROCESS_LOW_PRIORITY] = ColorPair(Green,Black),
+-      [PROCESS_THREAD] = ColorPair(Green,Black),
+-      [PROCESS_THREAD_BASENAME] = A_BOLD | ColorPair(Green,Black),
+-      [BAR_BORDER] = A_BOLD,
+-      [BAR_SHADOW] = A_BOLD | ColorPairGrayBlack,
+-      [SWAP] = ColorPair(Red,Black),
+-      [GRAPH_1] = A_BOLD | ColorPair(Cyan,Black),
+-      [GRAPH_2] = ColorPair(Cyan,Black),
+-      [MEMORY_USED] = ColorPair(Green,Black),
+-      [MEMORY_BUFFERS] = ColorPair(Blue,Black),
+-      [MEMORY_BUFFERS_TEXT] = A_BOLD | ColorPair(Blue,Black),
+-      [MEMORY_CACHE] = ColorPair(Yellow,Black),
+-      [LOAD_AVERAGE_FIFTEEN] = ColorPair(Cyan,Black),
+-      [LOAD_AVERAGE_FIVE] = A_BOLD | ColorPair(Cyan,Black),
+-      [LOAD_AVERAGE_ONE] = A_BOLD | ColorPair(White,Black),
+-      [LOAD] = A_BOLD,
+-      [HELP_BOLD] = A_BOLD | ColorPair(Cyan,Black),
+-      [CLOCK] = A_BOLD,
+-      [CHECK_BOX] = ColorPair(Cyan,Black),
+-      [CHECK_MARK] = A_BOLD,
+-      [CHECK_TEXT] = A_NORMAL,
+-      [HOSTNAME] = A_BOLD,
+-      [CPU_NICE] = ColorPair(Blue,Black),
+-      [CPU_NICE_TEXT] = A_BOLD | ColorPair(Blue,Black),
+-      [CPU_NORMAL] = ColorPair(Green,Black),
+-      [HTOP_CPU_KERNEL] = ColorPair(Red,Black),
+-      [CPU_IOWAIT] = A_BOLD | ColorPair(Black, Black),
+-      [CPU_IRQ] = ColorPair(Yellow,Black),
+-      [CPU_SOFTIRQ] = ColorPair(Magenta,Black),
+-      [CPU_STEAL] = ColorPair(Cyan,Black),
+-      [CPU_GUEST] = ColorPair(Cyan,Black),
++      [COLOR_RESET_COLOR] = ColorPair(White,Black),
++      [COLOR_DEFAULT_COLOR] = ColorPair(White,Black),
++      [COLOR_FUNCTION_BAR] = ColorPair(Black,Cyan),
++      [COLOR_FUNCTION_KEY] = ColorPair(White,Black),
++      [COLOR_PANEL_HEADER_FOCUS] = ColorPair(Black,Green),
++      [COLOR_PANEL_HEADER_UNFOCUS] = ColorPair(Black,Green),
++      [COLOR_PANEL_SELECTION_FOCUS] = ColorPair(Black,Cyan),
++      [COLOR_PANEL_SELECTION_FOLLOW] = ColorPair(Black,Yellow),
++      [COLOR_PANEL_SELECTION_UNFOCUS] = ColorPair(Black,White),
++      [COLOR_FAILED_SEARCH] = ColorPair(Red,Cyan),
++      [COLOR_UPTIME] = A_BOLD | ColorPair(Cyan,Black),
++      [COLOR_BATTERY] = A_BOLD | ColorPair(Cyan,Black),
++      [COLOR_LARGE_NUMBER] = A_BOLD | ColorPair(Red,Black),
++      [COLOR_METER_TEXT] = ColorPair(Cyan,Black),
++      [COLOR_METER_VALUE] = A_BOLD | ColorPair(Cyan,Black),
++      [COLOR_LED_COLOR] = ColorPair(Green,Black),
++      [COLOR_TASKS_RUNNING] = A_BOLD | ColorPair(Green,Black),
++      [COLOR_PROCESS] = A_NORMAL,
++      [COLOR_PROCESS_SHADOW] = A_BOLD | ColorPairGrayBlack,
++      [COLOR_PROCESS_TAG] = A_BOLD | ColorPair(Yellow,Black),
++      [COLOR_PROCESS_MEGABYTES] = ColorPair(Cyan,Black),
++      [COLOR_PROCESS_BASENAME] = A_BOLD | ColorPair(Cyan,Black),
++      [COLOR_PROCESS_TREE] = ColorPair(Cyan,Black),
++      [COLOR_PROCESS_R_STATE] = ColorPair(Green,Black),
++      [COLOR_PROCESS_D_STATE] = A_BOLD | ColorPair(Red,Black),
++      [COLOR_PROCESS_HIGH_PRIORITY] = ColorPair(Red,Black),
++      [COLOR_PROCESS_LOW_PRIORITY] = ColorPair(Green,Black),
++      [COLOR_PROCESS_THREAD] = ColorPair(Green,Black),
++      [COLOR_PROCESS_THREAD_BASENAME] = A_BOLD | ColorPair(Green,Black),
++      [COLOR_BAR_BORDER] = A_BOLD,
++      [COLOR_BAR_SHADOW] = A_BOLD | ColorPairGrayBlack,
++      [COLOR_SWAP] = ColorPair(Red,Black),
++      [COLOR_GRAPH_1] = A_BOLD | ColorPair(Cyan,Black),
++      [COLOR_GRAPH_2] = ColorPair(Cyan,Black),
++      [COLOR_MEMORY_USED] = ColorPair(Green,Black),
++      [COLOR_MEMORY_BUFFERS] = ColorPair(Blue,Black),
++      [COLOR_MEMORY_BUFFERS_TEXT] = A_BOLD | ColorPair(Blue,Black),
++      [COLOR_MEMORY_CACHE] = ColorPair(Yellow,Black),
++      [COLOR_LOAD_AVERAGE_FIFTEEN] = ColorPair(Cyan,Black),
++      [COLOR_LOAD_AVERAGE_FIVE] = A_BOLD | ColorPair(Cyan,Black),
++      [COLOR_LOAD_AVERAGE_ONE] = A_BOLD | ColorPair(White,Black),
++      [COLOR_LOAD] = A_BOLD,
++      [COLOR_HELP_BOLD] = A_BOLD | ColorPair(Cyan,Black),
++      [COLOR_CLOCK] = A_BOLD,
++      [COLOR_CHECK_BOX] = ColorPair(Cyan,Black),
++      [COLOR_CHECK_MARK] = A_BOLD,
++      [COLOR_CHECK_TEXT] = A_NORMAL,
++      [COLOR_HOSTNAME] = A_BOLD,
++      [COLOR_CPU_NICE] = ColorPair(Blue,Black),
++      [COLOR_CPU_NICE_TEXT] = A_BOLD | ColorPair(Blue,Black),
++      [COLOR_CPU_NORMAL] = ColorPair(Green,Black),
++      [COLOR_CPU_KERNEL] = ColorPair(Red,Black),
++      [COLOR_CPU_IOWAIT] = A_BOLD | ColorPair(Black, Black),
++      [COLOR_CPU_IRQ] = ColorPair(Yellow,Black),
++      [COLOR_CPU_SOFTIRQ] = ColorPair(Magenta,Black),
++      [COLOR_CPU_STEAL] = ColorPair(Cyan,Black),
++      [COLOR_CPU_GUEST] = ColorPair(Cyan,Black),
+    },
+    [COLORSCHEME_MONOCHROME] = {
+-      [RESET_COLOR] = A_NORMAL,
+-      [DEFAULT_COLOR] = A_NORMAL,
+-      [FUNCTION_BAR] = A_REVERSE,
+-      [FUNCTION_KEY] = A_NORMAL,
+-      [PANEL_HEADER_FOCUS] = A_REVERSE,
+-      [PANEL_HEADER_UNFOCUS] = A_REVERSE,
+-      [PANEL_SELECTION_FOCUS] = A_REVERSE,
+-      [PANEL_SELECTION_FOLLOW] = A_REVERSE,
+-      [PANEL_SELECTION_UNFOCUS] = A_BOLD,
+-      [FAILED_SEARCH] = A_REVERSE | A_BOLD,
+-      [UPTIME] = A_BOLD,
+-      [BATTERY] = A_BOLD,
+-      [LARGE_NUMBER] = A_BOLD,
+-      [METER_TEXT] = A_NORMAL,
+-      [METER_VALUE] = A_BOLD,
+-      [LED_COLOR] = A_NORMAL,
+-      [TASKS_RUNNING] = A_BOLD,
+-      [PROCESS] = A_NORMAL,
+-      [PROCESS_SHADOW] = A_DIM,
+-      [PROCESS_TAG] = A_BOLD,
+-      [PROCESS_MEGABYTES] = A_BOLD,
+-      [PROCESS_BASENAME] = A_BOLD,
+-      [PROCESS_TREE] = A_BOLD,
+-      [PROCESS_R_STATE] = A_BOLD,
+-      [PROCESS_D_STATE] = A_BOLD,
+-      [PROCESS_HIGH_PRIORITY] = A_BOLD,
+-      [PROCESS_LOW_PRIORITY] = A_DIM,
+-      [PROCESS_THREAD] = A_BOLD,
+-      [PROCESS_THREAD_BASENAME] = A_REVERSE,
+-      [BAR_BORDER] = A_BOLD,
+-      [BAR_SHADOW] = A_DIM,
+-      [SWAP] = A_BOLD,
+-      [GRAPH_1] = A_BOLD,
+-      [GRAPH_2] = A_NORMAL,
+-      [MEMORY_USED] = A_BOLD,
+-      [MEMORY_BUFFERS] = A_NORMAL,
+-      [MEMORY_BUFFERS_TEXT] = A_NORMAL,
+-      [MEMORY_CACHE] = A_NORMAL,
+-      [LOAD_AVERAGE_FIFTEEN] = A_DIM,
+-      [LOAD_AVERAGE_FIVE] = A_NORMAL,
+-      [LOAD_AVERAGE_ONE] = A_BOLD,
+-      [LOAD] = A_BOLD,
+-      [HELP_BOLD] = A_BOLD,
+-      [CLOCK] = A_BOLD,
+-      [CHECK_BOX] = A_BOLD,
+-      [CHECK_MARK] = A_NORMAL,
+-      [CHECK_TEXT] = A_NORMAL,
+-      [HOSTNAME] = A_BOLD,
+-      [CPU_NICE] = A_NORMAL,
+-      [CPU_NICE_TEXT] = A_NORMAL,
+-      [CPU_NORMAL] = A_BOLD,
+-      [HTOP_CPU_KERNEL] = A_BOLD,
+-      [CPU_IOWAIT] = A_NORMAL,
+-      [CPU_IRQ] = A_BOLD,
+-      [CPU_SOFTIRQ] = A_BOLD,
+-      [CPU_STEAL] = A_REVERSE,
+-      [CPU_GUEST] = A_REVERSE,
++      [COLOR_RESET_COLOR] = A_NORMAL,
++      [COLOR_DEFAULT_COLOR] = A_NORMAL,
++      [COLOR_FUNCTION_BAR] = A_REVERSE,
++      [COLOR_FUNCTION_KEY] = A_NORMAL,
++      [COLOR_PANEL_HEADER_FOCUS] = A_REVERSE,
++      [COLOR_PANEL_HEADER_UNFOCUS] = A_REVERSE,
++      [COLOR_PANEL_SELECTION_FOCUS] = A_REVERSE,
++      [COLOR_PANEL_SELECTION_FOLLOW] = A_REVERSE,
++      [COLOR_PANEL_SELECTION_UNFOCUS] = A_BOLD,
++      [COLOR_FAILED_SEARCH] = A_REVERSE | A_BOLD,
++      [COLOR_UPTIME] = A_BOLD,
++      [COLOR_BATTERY] = A_BOLD,
++      [COLOR_LARGE_NUMBER] = A_BOLD,
++      [COLOR_METER_TEXT] = A_NORMAL,
++      [COLOR_METER_VALUE] = A_BOLD,
++      [COLOR_LED_COLOR] = A_NORMAL,
++      [COLOR_TASKS_RUNNING] = A_BOLD,
++      [COLOR_PROCESS] = A_NORMAL,
++      [COLOR_PROCESS_SHADOW] = A_DIM,
++      [COLOR_PROCESS_TAG] = A_BOLD,
++      [COLOR_PROCESS_MEGABYTES] = A_BOLD,
++      [COLOR_PROCESS_BASENAME] = A_BOLD,
++      [COLOR_PROCESS_TREE] = A_BOLD,
++      [COLOR_PROCESS_R_STATE] = A_BOLD,
++      [COLOR_PROCESS_D_STATE] = A_BOLD,
++      [COLOR_PROCESS_HIGH_PRIORITY] = A_BOLD,
++      [COLOR_PROCESS_LOW_PRIORITY] = A_DIM,
++      [COLOR_PROCESS_THREAD] = A_BOLD,
++      [COLOR_PROCESS_THREAD_BASENAME] = A_REVERSE,
++      [COLOR_BAR_BORDER] = A_BOLD,
++      [COLOR_BAR_SHADOW] = A_DIM,
++      [COLOR_SWAP] = A_BOLD,
++      [COLOR_GRAPH_1] = A_BOLD,
++      [COLOR_GRAPH_2] = A_NORMAL,
++      [COLOR_MEMORY_USED] = A_BOLD,
++      [COLOR_MEMORY_BUFFERS] = A_NORMAL,
++      [COLOR_MEMORY_BUFFERS_TEXT] = A_NORMAL,
++      [COLOR_MEMORY_CACHE] = A_NORMAL,
++      [COLOR_LOAD_AVERAGE_FIFTEEN] = A_DIM,
++      [COLOR_LOAD_AVERAGE_FIVE] = A_NORMAL,
++      [COLOR_LOAD_AVERAGE_ONE] = A_BOLD,
++      [COLOR_LOAD] = A_BOLD,
++      [COLOR_HELP_BOLD] = A_BOLD,
++      [COLOR_CLOCK] = A_BOLD,
++      [COLOR_CHECK_BOX] = A_BOLD,
++      [COLOR_CHECK_MARK] = A_NORMAL,
++      [COLOR_CHECK_TEXT] = A_NORMAL,
++      [COLOR_HOSTNAME] = A_BOLD,
++      [COLOR_CPU_NICE] = A_NORMAL,
++      [COLOR_CPU_NICE_TEXT] = A_NORMAL,
++      [COLOR_CPU_NORMAL] = A_BOLD,
++      [COLOR_CPU_KERNEL] = A_BOLD,
++      [COLOR_CPU_IOWAIT] = A_NORMAL,
++      [COLOR_CPU_IRQ] = A_BOLD,
++      [COLOR_CPU_SOFTIRQ] = A_BOLD,
++      [COLOR_CPU_STEAL] = A_REVERSE,
++      [COLOR_CPU_GUEST] = A_REVERSE,
+    },
+    [COLORSCHEME_BLACKONWHITE] = {
+-      [RESET_COLOR] = ColorPair(Black,White),
+-      [DEFAULT_COLOR] = ColorPair(Black,White),
+-      [FUNCTION_BAR] = ColorPair(Black,Cyan),
+-      [FUNCTION_KEY] = ColorPair(Black,White),
+-      [PANEL_HEADER_FOCUS] = ColorPair(Black,Green),
+-      [PANEL_HEADER_UNFOCUS] = ColorPair(Black,Green),
+-      [PANEL_SELECTION_FOCUS] = ColorPair(Black,Cyan),
+-      [PANEL_SELECTION_FOLLOW] = ColorPair(Black,Yellow),
+-      [PANEL_SELECTION_UNFOCUS] = ColorPair(Blue,White),
+-      [FAILED_SEARCH] = ColorPair(Red,Cyan),
+-      [UPTIME] = ColorPair(Yellow,White),
+-      [BATTERY] = ColorPair(Yellow,White),
+-      [LARGE_NUMBER] = ColorPair(Red,White),
+-      [METER_TEXT] = ColorPair(Blue,White),
+-      [METER_VALUE] = ColorPair(Black,White),
+-      [LED_COLOR] = ColorPair(Green,White),
+-      [TASKS_RUNNING] = ColorPair(Green,White),
+-      [PROCESS] = ColorPair(Black,White),
+-      [PROCESS_SHADOW] = A_BOLD | ColorPair(Black,White),
+-      [PROCESS_TAG] = ColorPair(White,Blue),
+-      [PROCESS_MEGABYTES] = ColorPair(Blue,White),
+-      [PROCESS_BASENAME] = ColorPair(Blue,White),
+-      [PROCESS_TREE] = ColorPair(Green,White),
+-      [PROCESS_R_STATE] = ColorPair(Green,White),
+-      [PROCESS_D_STATE] = A_BOLD | ColorPair(Red,White),
+-      [PROCESS_HIGH_PRIORITY] = ColorPair(Red,White),
+-      [PROCESS_LOW_PRIORITY] = ColorPair(Green,White),
+-      [PROCESS_THREAD] = ColorPair(Blue,White),
+-      [PROCESS_THREAD_BASENAME] = A_BOLD | ColorPair(Blue,White),
+-      [BAR_BORDER] = ColorPair(Blue,White),
+-      [BAR_SHADOW] = ColorPair(Black,White),
+-      [SWAP] = ColorPair(Red,White),
+-      [GRAPH_1] = A_BOLD | ColorPair(Blue,White),
+-      [GRAPH_2] = ColorPair(Blue,White),
+-      [MEMORY_USED] = ColorPair(Green,White),
+-      [MEMORY_BUFFERS] = ColorPair(Cyan,White),
+-      [MEMORY_BUFFERS_TEXT] = ColorPair(Cyan,White),
+-      [MEMORY_CACHE] = ColorPair(Yellow,White),
+-      [LOAD_AVERAGE_FIFTEEN] = ColorPair(Black,White),
+-      [LOAD_AVERAGE_FIVE] = ColorPair(Black,White),
+-      [LOAD_AVERAGE_ONE] = ColorPair(Black,White),
+-      [LOAD] = ColorPair(Black,White),
+-      [HELP_BOLD] = ColorPair(Blue,White),
+-      [CLOCK] = ColorPair(Black,White),
+-      [CHECK_BOX] = ColorPair(Blue,White),
+-      [CHECK_MARK] = ColorPair(Black,White),
+-      [CHECK_TEXT] = ColorPair(Black,White),
+-      [HOSTNAME] = ColorPair(Black,White),
+-      [CPU_NICE] = ColorPair(Cyan,White),
+-      [CPU_NICE_TEXT] = ColorPair(Cyan,White),
+-      [CPU_NORMAL] = ColorPair(Green,White),
+-      [HTOP_CPU_KERNEL] = ColorPair(Red,White),
+-      [CPU_IOWAIT] = A_BOLD | ColorPair(Black, White),
+-      [CPU_IRQ] = ColorPair(Blue,White),
+-      [CPU_SOFTIRQ] = ColorPair(Blue,White),
+-      [CPU_STEAL] = ColorPair(Cyan,White),
+-      [CPU_GUEST] = ColorPair(Cyan,White),
++      [COLOR_RESET_COLOR] = ColorPair(Black,White),
++      [COLOR_DEFAULT_COLOR] = ColorPair(Black,White),
++      [COLOR_FUNCTION_BAR] = ColorPair(Black,Cyan),
++      [COLOR_FUNCTION_KEY] = ColorPair(Black,White),
++      [COLOR_PANEL_HEADER_FOCUS] = ColorPair(Black,Green),
++      [COLOR_PANEL_HEADER_UNFOCUS] = ColorPair(Black,Green),
++      [COLOR_PANEL_SELECTION_FOCUS] = ColorPair(Black,Cyan),
++      [COLOR_PANEL_SELECTION_FOLLOW] = ColorPair(Black,Yellow),
++      [COLOR_PANEL_SELECTION_UNFOCUS] = ColorPair(Blue,White),
++      [COLOR_FAILED_SEARCH] = ColorPair(Red,Cyan),
++      [COLOR_UPTIME] = ColorPair(Yellow,White),
++      [COLOR_BATTERY] = ColorPair(Yellow,White),
++      [COLOR_LARGE_NUMBER] = ColorPair(Red,White),
++      [COLOR_METER_TEXT] = ColorPair(Blue,White),
++      [COLOR_METER_VALUE] = ColorPair(Black,White),
++      [COLOR_LED_COLOR] = ColorPair(Green,White),
++      [COLOR_TASKS_RUNNING] = ColorPair(Green,White),
++      [COLOR_PROCESS] = ColorPair(Black,White),
++      [COLOR_PROCESS_SHADOW] = A_BOLD | ColorPair(Black,White),
++      [COLOR_PROCESS_TAG] = ColorPair(White,Blue),
++      [COLOR_PROCESS_MEGABYTES] = ColorPair(Blue,White),
++      [COLOR_PROCESS_BASENAME] = ColorPair(Blue,White),
++      [COLOR_PROCESS_TREE] = ColorPair(Green,White),
++      [COLOR_PROCESS_R_STATE] = ColorPair(Green,White),
++      [COLOR_PROCESS_D_STATE] = A_BOLD | ColorPair(Red,White),
++      [COLOR_PROCESS_HIGH_PRIORITY] = ColorPair(Red,White),
++      [COLOR_PROCESS_LOW_PRIORITY] = ColorPair(Green,White),
++      [COLOR_PROCESS_THREAD] = ColorPair(Blue,White),
++      [COLOR_PROCESS_THREAD_BASENAME] = A_BOLD | ColorPair(Blue,White),
++      [COLOR_BAR_BORDER] = ColorPair(Blue,White),
++      [COLOR_BAR_SHADOW] = ColorPair(Black,White),
++      [COLOR_SWAP] = ColorPair(Red,White),
++      [COLOR_GRAPH_1] = A_BOLD | ColorPair(Blue,White),
++      [COLOR_GRAPH_2] = ColorPair(Blue,White),
++      [COLOR_MEMORY_USED] = ColorPair(Green,White),
++      [COLOR_MEMORY_BUFFERS] = ColorPair(Cyan,White),
++      [COLOR_MEMORY_BUFFERS_TEXT] = ColorPair(Cyan,White),
++      [COLOR_MEMORY_CACHE] = ColorPair(Yellow,White),
++      [COLOR_LOAD_AVERAGE_FIFTEEN] = ColorPair(Black,White),
++      [COLOR_LOAD_AVERAGE_FIVE] = ColorPair(Black,White),
++      [COLOR_LOAD_AVERAGE_ONE] = ColorPair(Black,White),
++      [COLOR_LOAD] = ColorPair(Black,White),
++      [COLOR_HELP_BOLD] = ColorPair(Blue,White),
++      [COLOR_CLOCK] = ColorPair(Black,White),
++      [COLOR_CHECK_BOX] = ColorPair(Blue,White),
++      [COLOR_CHECK_MARK] = ColorPair(Black,White),
++      [COLOR_CHECK_TEXT] = ColorPair(Black,White),
++      [COLOR_HOSTNAME] = ColorPair(Black,White),
++      [COLOR_CPU_NICE] = ColorPair(Cyan,White),
++      [COLOR_CPU_NICE_TEXT] = ColorPair(Cyan,White),
++      [COLOR_CPU_NORMAL] = ColorPair(Green,White),
++      [COLOR_CPU_KERNEL] = ColorPair(Red,White),
++      [COLOR_CPU_IOWAIT] = A_BOLD | ColorPair(Black, White),
++      [COLOR_CPU_IRQ] = ColorPair(Blue,White),
++      [COLOR_CPU_SOFTIRQ] = ColorPair(Blue,White),
++      [COLOR_CPU_STEAL] = ColorPair(Cyan,White),
++      [COLOR_CPU_GUEST] = ColorPair(Cyan,White),
+    },
+    [COLORSCHEME_LIGHTTERMINAL] = {
+-      [RESET_COLOR] = ColorPair(Black,Black),
+-      [DEFAULT_COLOR] = ColorPair(Black,Black),
+-      [FUNCTION_BAR] = ColorPair(Black,Cyan),
+-      [FUNCTION_KEY] = ColorPair(Black,Black),
+-      [PANEL_HEADER_FOCUS] = ColorPair(Black,Green),
+-      [PANEL_HEADER_UNFOCUS] = ColorPair(Black,Green),
+-      [PANEL_SELECTION_FOCUS] = ColorPair(Black,Cyan),
+-      [PANEL_SELECTION_FOLLOW] = ColorPair(Black,Yellow),
+-      [PANEL_SELECTION_UNFOCUS] = ColorPair(Blue,Black),
+-      [FAILED_SEARCH] = ColorPair(Red,Cyan),
+-      [UPTIME] = ColorPair(Yellow,Black),
+-      [BATTERY] = ColorPair(Yellow,Black),
+-      [LARGE_NUMBER] = ColorPair(Red,Black),
+-      [METER_TEXT] = ColorPair(Blue,Black),
+-      [METER_VALUE] = ColorPair(Black,Black),
+-      [LED_COLOR] = ColorPair(Green,Black),
+-      [TASKS_RUNNING] = ColorPair(Green,Black),
+-      [PROCESS] = ColorPair(Black,Black),
+-      [PROCESS_SHADOW] = A_BOLD | ColorPairGrayBlack,
+-      [PROCESS_TAG] = ColorPair(White,Blue),
+-      [PROCESS_MEGABYTES] = ColorPair(Blue,Black),
+-      [PROCESS_BASENAME] = ColorPair(Green,Black),
+-      [PROCESS_TREE] = ColorPair(Blue,Black),
+-      [PROCESS_R_STATE] = ColorPair(Green,Black),
+-      [PROCESS_D_STATE] = A_BOLD | ColorPair(Red,Black),
+-      [PROCESS_HIGH_PRIORITY] = ColorPair(Red,Black),
+-      [PROCESS_LOW_PRIORITY] = ColorPair(Green,Black),
+-      [PROCESS_THREAD] = ColorPair(Blue,Black),
+-      [PROCESS_THREAD_BASENAME] = A_BOLD | ColorPair(Blue,Black),
+-      [BAR_BORDER] = ColorPair(Blue,Black),
+-      [BAR_SHADOW] = ColorPairGrayBlack,
+-      [SWAP] = ColorPair(Red,Black),
+-      [GRAPH_1] = A_BOLD | ColorPair(Cyan,Black),
+-      [GRAPH_2] = ColorPair(Cyan,Black),
+-      [MEMORY_USED] = ColorPair(Green,Black),
+-      [MEMORY_BUFFERS] = ColorPair(Cyan,Black),
+-      [MEMORY_BUFFERS_TEXT] = ColorPair(Cyan,Black),
+-      [MEMORY_CACHE] = ColorPair(Yellow,Black),
+-      [LOAD_AVERAGE_FIFTEEN] = ColorPair(Black,Black),
+-      [LOAD_AVERAGE_FIVE] = ColorPair(Black,Black),
+-      [LOAD_AVERAGE_ONE] = ColorPair(Black,Black),
+-      [LOAD] = ColorPair(White,Black),
+-      [HELP_BOLD] = ColorPair(Blue,Black),
+-      [CLOCK] = ColorPair(White,Black),
+-      [CHECK_BOX] = ColorPair(Blue,Black),
+-      [CHECK_MARK] = ColorPair(Black,Black),
+-      [CHECK_TEXT] = ColorPair(Black,Black),
+-      [HOSTNAME] = ColorPair(White,Black),
+-      [CPU_NICE] = ColorPair(Cyan,Black),
+-      [CPU_NICE_TEXT] = ColorPair(Cyan,Black),
+-      [CPU_NORMAL] = ColorPair(Green,Black),
+-      [HTOP_CPU_KERNEL] = ColorPair(Red,Black),
+-      [CPU_IOWAIT] = A_BOLD | ColorPair(Black, Black),
+-      [CPU_IRQ] = A_BOLD | ColorPair(Blue,Black),
+-      [CPU_SOFTIRQ] = ColorPair(Blue,Black),
+-      [CPU_STEAL] = ColorPair(Black,Black),
+-      [CPU_GUEST] = ColorPair(Black,Black),
++      [COLOR_RESET_COLOR] = ColorPair(Black,Black),
++      [COLOR_DEFAULT_COLOR] = ColorPair(Black,Black),
++      [COLOR_FUNCTION_BAR] = ColorPair(Black,Cyan),
++      [COLOR_FUNCTION_KEY] = ColorPair(Black,Black),
++      [COLOR_PANEL_HEADER_FOCUS] = ColorPair(Black,Green),
++      [COLOR_PANEL_HEADER_UNFOCUS] = ColorPair(Black,Green),
++      [COLOR_PANEL_SELECTION_FOCUS] = ColorPair(Black,Cyan),
++      [COLOR_PANEL_SELECTION_FOLLOW] = ColorPair(Black,Yellow),
++      [COLOR_PANEL_SELECTION_UNFOCUS] = ColorPair(Blue,Black),
++      [COLOR_FAILED_SEARCH] = ColorPair(Red,Cyan),
++      [COLOR_UPTIME] = ColorPair(Yellow,Black),
++      [COLOR_BATTERY] = ColorPair(Yellow,Black),
++      [COLOR_LARGE_NUMBER] = ColorPair(Red,Black),
++      [COLOR_METER_TEXT] = ColorPair(Blue,Black),
++      [COLOR_METER_VALUE] = ColorPair(Black,Black),
++      [COLOR_LED_COLOR] = ColorPair(Green,Black),
++      [COLOR_TASKS_RUNNING] = ColorPair(Green,Black),
++      [COLOR_PROCESS] = ColorPair(Black,Black),
++      [COLOR_PROCESS_SHADOW] = A_BOLD | ColorPairGrayBlack,
++      [COLOR_PROCESS_TAG] = ColorPair(White,Blue),
++      [COLOR_PROCESS_MEGABYTES] = ColorPair(Blue,Black),
++      [COLOR_PROCESS_BASENAME] = ColorPair(Green,Black),
++      [COLOR_PROCESS_TREE] = ColorPair(Blue,Black),
++      [COLOR_PROCESS_R_STATE] = ColorPair(Green,Black),
++      [COLOR_PROCESS_D_STATE] = A_BOLD | ColorPair(Red,Black),
++      [COLOR_PROCESS_HIGH_PRIORITY] = ColorPair(Red,Black),
++      [COLOR_PROCESS_LOW_PRIORITY] = ColorPair(Green,Black),
++      [COLOR_PROCESS_THREAD] = ColorPair(Blue,Black),
++      [COLOR_PROCESS_THREAD_BASENAME] = A_BOLD | ColorPair(Blue,Black),
++      [COLOR_BAR_BORDER] = ColorPair(Blue,Black),
++      [COLOR_BAR_SHADOW] = ColorPairGrayBlack,
++      [COLOR_SWAP] = ColorPair(Red,Black),
++      [COLOR_GRAPH_1] = A_BOLD | ColorPair(Cyan,Black),
++      [COLOR_GRAPH_2] = ColorPair(Cyan,Black),
++      [COLOR_MEMORY_USED] = ColorPair(Green,Black),
++      [COLOR_MEMORY_BUFFERS] = ColorPair(Cyan,Black),
++      [COLOR_MEMORY_BUFFERS_TEXT] = ColorPair(Cyan,Black),
++      [COLOR_MEMORY_CACHE] = ColorPair(Yellow,Black),
++      [COLOR_LOAD_AVERAGE_FIFTEEN] = ColorPair(Black,Black),
++      [COLOR_LOAD_AVERAGE_FIVE] = ColorPair(Black,Black),
++      [COLOR_LOAD_AVERAGE_ONE] = ColorPair(Black,Black),
++      [COLOR_LOAD] = ColorPair(White,Black),
++      [COLOR_HELP_BOLD] = ColorPair(Blue,Black),
++      [COLOR_CLOCK] = ColorPair(White,Black),
++      [COLOR_CHECK_BOX] = ColorPair(Blue,Black),
++      [COLOR_CHECK_MARK] = ColorPair(Black,Black),
++      [COLOR_CHECK_TEXT] = ColorPair(Black,Black),
++      [COLOR_HOSTNAME] = ColorPair(White,Black),
++      [COLOR_CPU_NICE] = ColorPair(Cyan,Black),
++      [COLOR_CPU_NICE_TEXT] = ColorPair(Cyan,Black),
++      [COLOR_CPU_NORMAL] = ColorPair(Green,Black),
++      [COLOR_CPU_KERNEL] = ColorPair(Red,Black),
++      [COLOR_CPU_IOWAIT] = A_BOLD | ColorPair(Black, Black),
++      [COLOR_CPU_IRQ] = A_BOLD | ColorPair(Blue,Black),
++      [COLOR_CPU_SOFTIRQ] = ColorPair(Blue,Black),
++      [COLOR_CPU_STEAL] = ColorPair(Black,Black),
++      [COLOR_CPU_GUEST] = ColorPair(Black,Black),
+    },
+    [COLORSCHEME_MIDNIGHT] = {
+-      [RESET_COLOR] = ColorPair(White,Blue),
+-      [DEFAULT_COLOR] = ColorPair(White,Blue),
+-      [FUNCTION_BAR] = ColorPair(Black,Cyan),
+-      [FUNCTION_KEY] = A_NORMAL,
+-      [PANEL_HEADER_FOCUS] = ColorPair(Black,Cyan),
+-      [PANEL_HEADER_UNFOCUS] = ColorPair(Black,Cyan),
+-      [PANEL_SELECTION_FOCUS] = ColorPair(Black,White),
+-      [PANEL_SELECTION_FOLLOW] = ColorPair(Black,Yellow),
+-      [PANEL_SELECTION_UNFOCUS] = A_BOLD | ColorPair(Yellow,Blue),
+-      [FAILED_SEARCH] = ColorPair(Red,Cyan),
+-      [UPTIME] = A_BOLD | ColorPair(Yellow,Blue),
+-      [BATTERY] = A_BOLD | ColorPair(Yellow,Blue),
+-      [LARGE_NUMBER] = A_BOLD | ColorPair(Red,Blue),
+-      [METER_TEXT] = ColorPair(Cyan,Blue),
+-      [METER_VALUE] = A_BOLD | ColorPair(Cyan,Blue),
+-      [LED_COLOR] = ColorPair(Green,Blue),
+-      [TASKS_RUNNING] = A_BOLD | ColorPair(Green,Blue),
+-      [PROCESS] = ColorPair(White,Blue),
+-      [PROCESS_SHADOW] = A_BOLD | ColorPair(Black,Blue),
+-      [PROCESS_TAG] = A_BOLD | ColorPair(Yellow,Blue),
+-      [PROCESS_MEGABYTES] = ColorPair(Cyan,Blue),
+-      [PROCESS_BASENAME] = A_BOLD | ColorPair(Cyan,Blue),
+-      [PROCESS_TREE] = ColorPair(Cyan,Blue),
+-      [PROCESS_R_STATE] = ColorPair(Green,Blue),
+-      [PROCESS_D_STATE] = A_BOLD | ColorPair(Red,Blue),
+-      [PROCESS_HIGH_PRIORITY] = ColorPair(Red,Blue),
+-      [PROCESS_LOW_PRIORITY] = ColorPair(Green,Blue),
+-      [PROCESS_THREAD] = ColorPair(Green,Blue),
+-      [PROCESS_THREAD_BASENAME] = A_BOLD | ColorPair(Green,Blue),
+-      [BAR_BORDER] = A_BOLD | ColorPair(Yellow,Blue),
+-      [BAR_SHADOW] = ColorPair(Cyan,Blue),
+-      [SWAP] = ColorPair(Red,Blue),
+-      [GRAPH_1] = A_BOLD | ColorPair(Cyan,Blue),
+-      [GRAPH_2] = ColorPair(Cyan,Blue),
+-      [MEMORY_USED] = A_BOLD | ColorPair(Green,Blue),
+-      [MEMORY_BUFFERS] = A_BOLD | ColorPair(Cyan,Blue),
+-      [MEMORY_BUFFERS_TEXT] = A_BOLD | ColorPair(Cyan,Blue),
+-      [MEMORY_CACHE] = A_BOLD | ColorPair(Yellow,Blue),
+-      [LOAD_AVERAGE_FIFTEEN] = A_BOLD | ColorPair(Black,Blue),
+-      [LOAD_AVERAGE_FIVE] = A_NORMAL | ColorPair(White,Blue),
+-      [LOAD_AVERAGE_ONE] = A_BOLD | ColorPair(White,Blue),
+-      [LOAD] = A_BOLD | ColorPair(White,Blue),
+-      [HELP_BOLD] = A_BOLD | ColorPair(Cyan,Blue),
+-      [CLOCK] = ColorPair(White,Blue),
+-      [CHECK_BOX] = ColorPair(Cyan,Blue),
+-      [CHECK_MARK] = A_BOLD | ColorPair(White,Blue),
+-      [CHECK_TEXT] = A_NORMAL | ColorPair(White,Blue),
+-      [HOSTNAME] = ColorPair(White,Blue),
+-      [CPU_NICE] = A_BOLD | ColorPair(Cyan,Blue),
+-      [CPU_NICE_TEXT] = A_BOLD | ColorPair(Cyan,Blue),
+-      [CPU_NORMAL] = A_BOLD | ColorPair(Green,Blue),
+-      [HTOP_CPU_KERNEL] = A_BOLD | ColorPair(Red,Blue),
+-      [CPU_IOWAIT] = A_BOLD | ColorPair(Blue,Blue),
+-      [CPU_IRQ] = A_BOLD | ColorPair(Black,Blue),
+-      [CPU_SOFTIRQ] = ColorPair(Black,Blue),
+-      [CPU_STEAL] = ColorPair(White,Blue),
+-      [CPU_GUEST] = ColorPair(White,Blue),
++      [COLOR_RESET_COLOR] = ColorPair(White,Blue),
++      [COLOR_DEFAULT_COLOR] = ColorPair(White,Blue),
++      [COLOR_FUNCTION_BAR] = ColorPair(Black,Cyan),
++      [COLOR_FUNCTION_KEY] = A_NORMAL,
++      [COLOR_PANEL_HEADER_FOCUS] = ColorPair(Black,Cyan),
++      [COLOR_PANEL_HEADER_UNFOCUS] = ColorPair(Black,Cyan),
++      [COLOR_PANEL_SELECTION_FOCUS] = ColorPair(Black,White),
++      [COLOR_PANEL_SELECTION_FOLLOW] = ColorPair(Black,Yellow),
++      [COLOR_PANEL_SELECTION_UNFOCUS] = A_BOLD | ColorPair(Yellow,Blue),
++      [COLOR_FAILED_SEARCH] = ColorPair(Red,Cyan),
++      [COLOR_UPTIME] = A_BOLD | ColorPair(Yellow,Blue),
++      [COLOR_BATTERY] = A_BOLD | ColorPair(Yellow,Blue),
++      [COLOR_LARGE_NUMBER] = A_BOLD | ColorPair(Red,Blue),
++      [COLOR_METER_TEXT] = ColorPair(Cyan,Blue),
++      [COLOR_METER_VALUE] = A_BOLD | ColorPair(Cyan,Blue),
++      [COLOR_LED_COLOR] = ColorPair(Green,Blue),
++      [COLOR_TASKS_RUNNING] = A_BOLD | ColorPair(Green,Blue),
++      [COLOR_PROCESS] = ColorPair(White,Blue),
++      [COLOR_PROCESS_SHADOW] = A_BOLD | ColorPair(Black,Blue),
++      [COLOR_PROCESS_TAG] = A_BOLD | ColorPair(Yellow,Blue),
++      [COLOR_PROCESS_MEGABYTES] = ColorPair(Cyan,Blue),
++      [COLOR_PROCESS_BASENAME] = A_BOLD | ColorPair(Cyan,Blue),
++      [COLOR_PROCESS_TREE] = ColorPair(Cyan,Blue),
++      [COLOR_PROCESS_R_STATE] = ColorPair(Green,Blue),
++      [COLOR_PROCESS_D_STATE] = A_BOLD | ColorPair(Red,Blue),
++      [COLOR_PROCESS_HIGH_PRIORITY] = ColorPair(Red,Blue),
++      [COLOR_PROCESS_LOW_PRIORITY] = ColorPair(Green,Blue),
++      [COLOR_PROCESS_THREAD] = ColorPair(Green,Blue),
++      [COLOR_PROCESS_THREAD_BASENAME] = A_BOLD | ColorPair(Green,Blue),
++      [COLOR_BAR_BORDER] = A_BOLD | ColorPair(Yellow,Blue),
++      [COLOR_BAR_SHADOW] = ColorPair(Cyan,Blue),
++      [COLOR_SWAP] = ColorPair(Red,Blue),
++      [COLOR_GRAPH_1] = A_BOLD | ColorPair(Cyan,Blue),
++      [COLOR_GRAPH_2] = ColorPair(Cyan,Blue),
++      [COLOR_MEMORY_USED] = A_BOLD | ColorPair(Green,Blue),
++      [COLOR_MEMORY_BUFFERS] = A_BOLD | ColorPair(Cyan,Blue),
++      [COLOR_MEMORY_BUFFERS_TEXT] = A_BOLD | ColorPair(Cyan,Blue),
++      [COLOR_MEMORY_CACHE] = A_BOLD | ColorPair(Yellow,Blue),
++      [COLOR_LOAD_AVERAGE_FIFTEEN] = A_BOLD | ColorPair(Black,Blue),
++      [COLOR_LOAD_AVERAGE_FIVE] = A_NORMAL | ColorPair(White,Blue),
++      [COLOR_LOAD_AVERAGE_ONE] = A_BOLD | ColorPair(White,Blue),
++      [COLOR_LOAD] = A_BOLD | ColorPair(White,Blue),
++      [COLOR_HELP_BOLD] = A_BOLD | ColorPair(Cyan,Blue),
++      [COLOR_CLOCK] = ColorPair(White,Blue),
++      [COLOR_CHECK_BOX] = ColorPair(Cyan,Blue),
++      [COLOR_CHECK_MARK] = A_BOLD | ColorPair(White,Blue),
++      [COLOR_CHECK_TEXT] = A_NORMAL | ColorPair(White,Blue),
++      [COLOR_HOSTNAME] = ColorPair(White,Blue),
++      [COLOR_CPU_NICE] = A_BOLD | ColorPair(Cyan,Blue),
++      [COLOR_CPU_NICE_TEXT] = A_BOLD | ColorPair(Cyan,Blue),
++      [COLOR_CPU_NORMAL] = A_BOLD | ColorPair(Green,Blue),
++      [COLOR_CPU_KERNEL] = A_BOLD | ColorPair(Red,Blue),
++      [COLOR_CPU_IOWAIT] = A_BOLD | ColorPair(Blue,Blue),
++      [COLOR_CPU_IRQ] = A_BOLD | ColorPair(Black,Blue),
++      [COLOR_CPU_SOFTIRQ] = ColorPair(Black,Blue),
++      [COLOR_CPU_STEAL] = ColorPair(White,Blue),
++      [COLOR_CPU_GUEST] = ColorPair(White,Blue),
+    },
+    [COLORSCHEME_BLACKNIGHT] = {
+-      [RESET_COLOR] = ColorPair(Cyan,Black),
+-      [DEFAULT_COLOR] = ColorPair(Cyan,Black),
+-      [FUNCTION_BAR] = ColorPair(Black,Green),
+-      [FUNCTION_KEY] = ColorPair(Cyan,Black),
+-      [PANEL_HEADER_FOCUS] = ColorPair(Black,Green),
+-      [PANEL_HEADER_UNFOCUS] = ColorPair(Black,Green),
+-      [PANEL_SELECTION_FOCUS] = ColorPair(Black,Cyan),
+-      [PANEL_SELECTION_FOLLOW] = ColorPair(Black,Yellow),
+-      [PANEL_SELECTION_UNFOCUS] = ColorPair(Black,White),
+-      [FAILED_SEARCH] = ColorPair(Red,Cyan),
+-      [UPTIME] = ColorPair(Green,Black),
+-      [BATTERY] = ColorPair(Green,Black),
+-      [LARGE_NUMBER] = A_BOLD | ColorPair(Red,Black),
+-      [METER_TEXT] = ColorPair(Cyan,Black),
+-      [METER_VALUE] = ColorPair(Green,Black),
+-      [LED_COLOR] = ColorPair(Green,Black),
+-      [TASKS_RUNNING] = A_BOLD | ColorPair(Green,Black),
+-      [PROCESS] = ColorPair(Cyan,Black),
+-      [PROCESS_SHADOW] = A_BOLD | ColorPairGrayBlack,
+-      [PROCESS_TAG] = A_BOLD | ColorPair(Yellow,Black),
+-      [PROCESS_MEGABYTES] = A_BOLD | ColorPair(Green,Black),
+-      [PROCESS_BASENAME] = A_BOLD | ColorPair(Green,Black),
+-      [PROCESS_TREE] = ColorPair(Cyan,Black),
+-      [PROCESS_THREAD] = ColorPair(Green,Black),
+-      [PROCESS_THREAD_BASENAME] = A_BOLD | ColorPair(Blue,Black),
+-      [PROCESS_R_STATE] = ColorPair(Green,Black),
+-      [PROCESS_D_STATE] = A_BOLD | ColorPair(Red,Black),
+-      [PROCESS_HIGH_PRIORITY] = ColorPair(Red,Black),
+-      [PROCESS_LOW_PRIORITY] = ColorPair(Green,Black),
+-      [BAR_BORDER] = A_BOLD | ColorPair(Green,Black),
+-      [BAR_SHADOW] = ColorPair(Cyan,Black),
+-      [SWAP] = ColorPair(Red,Black),
+-      [GRAPH_1] = A_BOLD | ColorPair(Green,Black),
+-      [GRAPH_2] = ColorPair(Green,Black),
+-      [MEMORY_USED] = ColorPair(Green,Black),
+-      [MEMORY_BUFFERS] = ColorPair(Blue,Black),
+-      [MEMORY_BUFFERS_TEXT] = A_BOLD | ColorPair(Blue,Black),
+-      [MEMORY_CACHE] = ColorPair(Yellow,Black),
+-      [LOAD_AVERAGE_FIFTEEN] = ColorPair(Green,Black),
+-      [LOAD_AVERAGE_FIVE] = ColorPair(Green,Black),
+-      [LOAD_AVERAGE_ONE] = A_BOLD | ColorPair(Green,Black),
+-      [LOAD] = A_BOLD,
+-      [HELP_BOLD] = A_BOLD | ColorPair(Cyan,Black),
+-      [CLOCK] = ColorPair(Green,Black),
+-      [CHECK_BOX] = ColorPair(Green,Black),
+-      [CHECK_MARK] = A_BOLD | ColorPair(Green,Black),
+-      [CHECK_TEXT] = ColorPair(Cyan,Black),
+-      [HOSTNAME] = ColorPair(Green,Black),
+-      [CPU_NICE] = ColorPair(Blue,Black),
+-      [CPU_NICE_TEXT] = A_BOLD | ColorPair(Blue,Black),
+-      [CPU_NORMAL] = ColorPair(Green,Black),
+-      [HTOP_CPU_KERNEL] = ColorPair(Red,Black),
+-      [CPU_IOWAIT] = ColorPair(Yellow,Black),
+-      [CPU_IRQ] = A_BOLD | ColorPair(Blue,Black),
+-      [CPU_SOFTIRQ] = ColorPair(Blue,Black),
+-      [CPU_STEAL] = ColorPair(Cyan,Black),
+-      [CPU_GUEST] = ColorPair(Cyan,Black),
++      [COLOR_RESET_COLOR] = ColorPair(Cyan,Black),
++      [COLOR_DEFAULT_COLOR] = ColorPair(Cyan,Black),
++      [COLOR_FUNCTION_BAR] = ColorPair(Black,Green),
++      [COLOR_FUNCTION_KEY] = ColorPair(Cyan,Black),
++      [COLOR_PANEL_HEADER_FOCUS] = ColorPair(Black,Green),
++      [COLOR_PANEL_HEADER_UNFOCUS] = ColorPair(Black,Green),
++      [COLOR_PANEL_SELECTION_FOCUS] = ColorPair(Black,Cyan),
++      [COLOR_PANEL_SELECTION_FOLLOW] = ColorPair(Black,Yellow),
++      [COLOR_PANEL_SELECTION_UNFOCUS] = ColorPair(Black,White),
++      [COLOR_FAILED_SEARCH] = ColorPair(Red,Cyan),
++      [COLOR_UPTIME] = ColorPair(Green,Black),
++      [COLOR_BATTERY] = ColorPair(Green,Black),
++      [COLOR_LARGE_NUMBER] = A_BOLD | ColorPair(Red,Black),
++      [COLOR_METER_TEXT] = ColorPair(Cyan,Black),
++      [COLOR_METER_VALUE] = ColorPair(Green,Black),
++      [COLOR_LED_COLOR] = ColorPair(Green,Black),
++      [COLOR_TASKS_RUNNING] = A_BOLD | ColorPair(Green,Black),
++      [COLOR_PROCESS] = ColorPair(Cyan,Black),
++      [COLOR_PROCESS_SHADOW] = A_BOLD | ColorPairGrayBlack,
++      [COLOR_PROCESS_TAG] = A_BOLD | ColorPair(Yellow,Black),
++      [COLOR_PROCESS_MEGABYTES] = A_BOLD | ColorPair(Green,Black),
++      [COLOR_PROCESS_BASENAME] = A_BOLD | ColorPair(Green,Black),
++      [COLOR_PROCESS_TREE] = ColorPair(Cyan,Black),
++      [COLOR_PROCESS_THREAD] = ColorPair(Green,Black),
++      [COLOR_PROCESS_THREAD_BASENAME] = A_BOLD | ColorPair(Blue,Black),
++      [COLOR_PROCESS_R_STATE] = ColorPair(Green,Black),
++      [COLOR_PROCESS_D_STATE] = A_BOLD | ColorPair(Red,Black),
++      [COLOR_PROCESS_HIGH_PRIORITY] = ColorPair(Red,Black),
++      [COLOR_PROCESS_LOW_PRIORITY] = ColorPair(Green,Black),
++      [COLOR_BAR_BORDER] = A_BOLD | ColorPair(Green,Black),
++      [COLOR_BAR_SHADOW] = ColorPair(Cyan,Black),
++      [COLOR_SWAP] = ColorPair(Red,Black),
++      [COLOR_GRAPH_1] = A_BOLD | ColorPair(Green,Black),
++      [COLOR_GRAPH_2] = ColorPair(Green,Black),
++      [COLOR_MEMORY_USED] = ColorPair(Green,Black),
++      [COLOR_MEMORY_BUFFERS] = ColorPair(Blue,Black),
++      [COLOR_MEMORY_BUFFERS_TEXT] = A_BOLD | ColorPair(Blue,Black),
++      [COLOR_MEMORY_CACHE] = ColorPair(Yellow,Black),
++      [COLOR_LOAD_AVERAGE_FIFTEEN] = ColorPair(Green,Black),
++      [COLOR_LOAD_AVERAGE_FIVE] = ColorPair(Green,Black),
++      [COLOR_LOAD_AVERAGE_ONE] = A_BOLD | ColorPair(Green,Black),
++      [COLOR_LOAD] = A_BOLD,
++      [COLOR_HELP_BOLD] = A_BOLD | ColorPair(Cyan,Black),
++      [COLOR_CLOCK] = ColorPair(Green,Black),
++      [COLOR_CHECK_BOX] = ColorPair(Green,Black),
++      [COLOR_CHECK_MARK] = A_BOLD | ColorPair(Green,Black),
++      [COLOR_CHECK_TEXT] = ColorPair(Cyan,Black),
++      [COLOR_HOSTNAME] = ColorPair(Green,Black),
++      [COLOR_CPU_NICE] = ColorPair(Blue,Black),
++      [COLOR_CPU_NICE_TEXT] = A_BOLD | ColorPair(Blue,Black),
++      [COLOR_CPU_NORMAL] = ColorPair(Green,Black),
++      [COLOR_CPU_KERNEL] = ColorPair(Red,Black),
++      [COLOR_CPU_IOWAIT] = ColorPair(Yellow,Black),
++      [COLOR_CPU_IRQ] = A_BOLD | ColorPair(Blue,Black),
++      [COLOR_CPU_SOFTIRQ] = ColorPair(Blue,Black),
++      [COLOR_CPU_STEAL] = ColorPair(Cyan,Black),
++      [COLOR_CPU_GUEST] = ColorPair(Cyan,Black),
+    },
+    [COLORSCHEME_BROKENGRAY] = { 0 } // dynamically generated.
+ };
+diff --git a/CRT.h b/CRT.h
+index 7fb5e8b4..d69b1463 100644
+--- a/CRT.h
++++ b/CRT.h
+@@ -59,63 +59,63 @@ typedef enum ColorSchemes_ {
+ } ColorSchemes;
+ 
+ typedef enum ColorElements_ {
+-   RESET_COLOR,
+-   DEFAULT_COLOR,
+-   FUNCTION_BAR,
+-   FUNCTION_KEY,
+-   FAILED_SEARCH,
+-   PANEL_HEADER_FOCUS,
+-   PANEL_HEADER_UNFOCUS,
+-   PANEL_SELECTION_FOCUS,
+-   PANEL_SELECTION_FOLLOW,
+-   PANEL_SELECTION_UNFOCUS,
+-   LARGE_NUMBER,
+-   METER_TEXT,
+-   METER_VALUE,
+-   LED_COLOR,
+-   UPTIME,
+-   BATTERY,
+-   TASKS_RUNNING,
+-   SWAP,
+-   PROCESS,
+-   PROCESS_SHADOW,
+-   PROCESS_TAG,
+-   PROCESS_MEGABYTES,
+-   PROCESS_TREE,
+-   PROCESS_R_STATE,
+-   PROCESS_D_STATE,
+-   PROCESS_BASENAME,
+-   PROCESS_HIGH_PRIORITY,
+-   PROCESS_LOW_PRIORITY,
+-   PROCESS_THREAD,
+-   PROCESS_THREAD_BASENAME,
+-   BAR_BORDER,
+-   BAR_SHADOW,
+-   GRAPH_1,
+-   GRAPH_2,
+-   MEMORY_USED,
+-   MEMORY_BUFFERS,
+-   MEMORY_BUFFERS_TEXT,
+-   MEMORY_CACHE,
+-   LOAD,
+-   LOAD_AVERAGE_FIFTEEN,
+-   LOAD_AVERAGE_FIVE,
+-   LOAD_AVERAGE_ONE,
+-   CHECK_BOX,
+-   CHECK_MARK,
+-   CHECK_TEXT,
+-   CLOCK,
+-   HELP_BOLD,
+-   HOSTNAME,
+-   CPU_NICE,
+-   CPU_NICE_TEXT,
+-   CPU_NORMAL,
+-   HTOP_CPU_KERNEL,
+-   CPU_IOWAIT,
+-   CPU_IRQ,
+-   CPU_SOFTIRQ,
+-   CPU_STEAL,
+-   CPU_GUEST,
++   COLOR_RESET_COLOR,
++   COLOR_DEFAULT_COLOR,
++   COLOR_FUNCTION_BAR,
++   COLOR_FUNCTION_KEY,
++   COLOR_FAILED_SEARCH,
++   COLOR_PANEL_HEADER_FOCUS,
++   COLOR_PANEL_HEADER_UNFOCUS,
++   COLOR_PANEL_SELECTION_FOCUS,
++   COLOR_PANEL_SELECTION_FOLLOW,
++   COLOR_PANEL_SELECTION_UNFOCUS,
++   COLOR_LARGE_NUMBER,
++   COLOR_METER_TEXT,
++   COLOR_METER_VALUE,
++   COLOR_LED_COLOR,
++   COLOR_UPTIME,
++   COLOR_BATTERY,
++   COLOR_TASKS_RUNNING,
++   COLOR_SWAP,
++   COLOR_PROCESS,
++   COLOR_PROCESS_SHADOW,
++   COLOR_PROCESS_TAG,
++   COLOR_PROCESS_MEGABYTES,
++   COLOR_PROCESS_TREE,
++   COLOR_PROCESS_R_STATE,
++   COLOR_PROCESS_D_STATE,
++   COLOR_PROCESS_BASENAME,
++   COLOR_PROCESS_HIGH_PRIORITY,
++   COLOR_PROCESS_LOW_PRIORITY,
++   COLOR_PROCESS_THREAD,
++   COLOR_PROCESS_THREAD_BASENAME,
++   COLOR_BAR_BORDER,
++   COLOR_BAR_SHADOW,
++   COLOR_GRAPH_1,
++   COLOR_GRAPH_2,
++   COLOR_MEMORY_USED,
++   COLOR_MEMORY_BUFFERS,
++   COLOR_MEMORY_BUFFERS_TEXT,
++   COLOR_MEMORY_CACHE,
++   COLOR_LOAD,
++   COLOR_LOAD_AVERAGE_FIFTEEN,
++   COLOR_LOAD_AVERAGE_FIVE,
++   COLOR_LOAD_AVERAGE_ONE,
++   COLOR_CHECK_BOX,
++   COLOR_CHECK_MARK,
++   COLOR_CHECK_TEXT,
++   COLOR_CLOCK,
++   COLOR_HELP_BOLD,
++   COLOR_HOSTNAME,
++   COLOR_CPU_NICE,
++   COLOR_CPU_NICE_TEXT,
++   COLOR_CPU_NORMAL,
++   COLOR_CPU_KERNEL,
++   COLOR_CPU_IOWAIT,
++   COLOR_CPU_IRQ,
++   COLOR_CPU_SOFTIRQ,
++   COLOR_CPU_STEAL,
++   COLOR_CPU_GUEST,
+    LAST_COLORELEMENT
+ } ColorElements;
+ 
+diff --git a/CheckItem.c b/CheckItem.c
+index b7ba6fec..5c337c9f 100644
+--- a/CheckItem.c
++++ b/CheckItem.c
+@@ -35,13 +35,13 @@ static void CheckItem_delete(Object* cast) {
+ static void CheckItem_display(Object* cast, RichString* out) {
+    CheckItem* this = (CheckItem*)cast;
+    assert (this != NULL);
+-   RichString_write(out, CRT_colors[CHECK_BOX], "[");
++   RichString_write(out, CRT_colors[COLOR_CHECK_BOX], "[");
+    if (CheckItem_get(this))
+-      RichString_append(out, CRT_colors[CHECK_MARK], "x");
++      RichString_append(out, CRT_colors[COLOR_CHECK_MARK], "x");
+    else
+-      RichString_append(out, CRT_colors[CHECK_MARK], " ");
+-   RichString_append(out, CRT_colors[CHECK_BOX], "] ");
+-   RichString_append(out, CRT_colors[CHECK_TEXT], this->text);
++      RichString_append(out, CRT_colors[COLOR_CHECK_MARK], " ");
++   RichString_append(out, CRT_colors[COLOR_CHECK_BOX], "] ");
++   RichString_append(out, CRT_colors[COLOR_CHECK_TEXT], this->text);
+ }
+ 
+ ObjectClass CheckItem_class = {
+diff --git a/ClockMeter.c b/ClockMeter.c
+index 0af88626..463a4fd3 100644
+--- a/ClockMeter.c
++++ b/ClockMeter.c
+@@ -16,7 +16,7 @@ in the source distribution for its full text.
+ }*/
+ 
+ int ClockMeter_attributes[] = {
+-   CLOCK
++   COLOR_CLOCK
+ };
+ 
+ static void ClockMeter_updateValues(Meter* this, char* buffer, int size) {
+diff --git a/ColorsPanel.c b/ColorsPanel.c
+index 2028335f..12156e67 100644
+--- a/ColorsPanel.c
++++ b/ColorsPanel.c
+@@ -81,8 +81,8 @@ static HandlerResult ColorsPanel_eventHandler(Panel* super, int ch) {
+       clear();
+       Panel* menu = (Panel*) Vector_get(this->scr->panels, 0);
+       Header_draw(header);
+-      RichString_setAttr(&(super->header), CRT_colors[PANEL_HEADER_FOCUS]);
+-      RichString_setAttr(&(menu->header), CRT_colors[PANEL_HEADER_UNFOCUS]);
++      RichString_setAttr(&(super->header), CRT_colors[COLOR_PANEL_HEADER_FOCUS]);
++      RichString_setAttr(&(menu->header), CRT_colors[COLOR_PANEL_HEADER_UNFOCUS]);
+       ScreenManager_resize(this->scr, this->scr->x1, header->height, this->scr->x2, this->scr->y2);
+    }
+    return result;
+diff --git a/ColumnsPanel.c b/ColumnsPanel.c
+index 8974ffdc..ebf85125 100644
+--- a/ColumnsPanel.c
++++ b/ColumnsPanel.c
+@@ -54,7 +54,7 @@ static HandlerResult ColumnsPanel_eventHandler(Panel* super, int ch) {
+       {
+          if (selected < size - 1) {
+             this->moving = !(this->moving);
+-            Panel_setSelectionColor(super, this->moving ? CRT_colors[PANEL_SELECTION_FOLLOW] : CRT_colors[PANEL_SELECTION_FOCUS]);
++            Panel_setSelectionColor(super, this->moving ? CRT_colors[COLOR_PANEL_SELECTION_FOLLOW] : CRT_colors[COLOR_PANEL_SELECTION_FOCUS]);
+             ((ListItem*)Panel_getSelected(super))->moving = this->moving;
+             result = HANDLED;
+          }
+diff --git a/FunctionBar.c b/FunctionBar.c
+index 4e4baaf3..c3f91b6f 100644
+--- a/FunctionBar.c
++++ b/FunctionBar.c
+@@ -97,18 +97,18 @@ void FunctionBar_setLabel(FunctionBar* this, int event, const char* text) {
+ }
+ 
+ void FunctionBar_draw(const FunctionBar* this, char* buffer) {
+-   FunctionBar_drawAttr(this, buffer, CRT_colors[FUNCTION_BAR]);
++   FunctionBar_drawAttr(this, buffer, CRT_colors[COLOR_FUNCTION_BAR]);
+ }
+ 
+ void FunctionBar_drawAttr(const FunctionBar* this, char* buffer, int attr) {
+-   attrset(CRT_colors[FUNCTION_BAR]);
++   attrset(CRT_colors[COLOR_FUNCTION_BAR]);
+    mvhline(LINES-1, 0, ' ', COLS);
+    int x = 0;
+    for (int i = 0; i < this->size; i++) {
+-      attrset(CRT_colors[FUNCTION_KEY]);
++      attrset(CRT_colors[COLOR_FUNCTION_KEY]);
+       mvaddstr(LINES-1, x, this->keys[i]);
+       x += strlen(this->keys[i]);
+-      attrset(CRT_colors[FUNCTION_BAR]);
++      attrset(CRT_colors[COLOR_FUNCTION_BAR]);
+       mvaddstr(LINES-1, x, this->functions[i]);
+       x += strlen(this->functions[i]);
+    }
+@@ -120,7 +120,7 @@ void FunctionBar_drawAttr(const FunctionBar* this, char* buffer, int attr) {
+    } else {
+       curs_set(0);
+    }
+-   attrset(CRT_colors[RESET_COLOR]);
++   attrset(CRT_colors[COLOR_RESET_COLOR]);
+ }
+ 
+ int FunctionBar_synthesizeEvent(const FunctionBar* this, int pos) {
+diff --git a/Header.c b/Header.c
+index e048ee55..a762397b 100644
+--- a/Header.c
++++ b/Header.c
+@@ -180,7 +180,7 @@ void Header_reinit(Header* this) {
+ void Header_draw(const Header* this) {
+    int height = this->height;
+    int pad = this->pad;
+-   attrset(CRT_colors[RESET_COLOR]);
++   attrset(CRT_colors[COLOR_RESET_COLOR]);
+    for (int y = 0; y < height; y++) {
+       mvhline(y, 0, ' ', COLS);
+    }
+diff --git a/HostnameMeter.c b/HostnameMeter.c
+index 4c3b051e..a38aea45 100644
+--- a/HostnameMeter.c
++++ b/HostnameMeter.c
+@@ -16,7 +16,7 @@ in the source distribution for its full text.
+ }*/
+ 
+ int HostnameMeter_attributes[] = {
+-   HOSTNAME
++   COLOR_HOSTNAME
+ };
+ 
+ static void HostnameMeter_updateValues(Meter* this, char* buffer, int size) {
+diff --git a/IncSet.c b/IncSet.c
+index bb9f9544..3bb1c471 100644
+--- a/IncSet.c
++++ b/IncSet.c
+@@ -128,7 +128,7 @@ static bool search(IncMode* mode, Panel* panel, IncMode_GetPanelValue getPanelVa
+    if (found)
+       FunctionBar_draw(mode->bar, mode->buffer);
+    else
+-      FunctionBar_drawAttr(mode->bar, mode->buffer, CRT_colors[FAILED_SEARCH]);
++      FunctionBar_drawAttr(mode->bar, mode->buffer, CRT_colors[COLOR_FAILED_SEARCH]);
+    return found;
+ }
+ 
+diff --git a/InfoScreen.c b/InfoScreen.c
+index fab8daea..6433025f 100644
+--- a/InfoScreen.c
++++ b/InfoScreen.c
+@@ -78,11 +78,11 @@ InfoScreen* InfoScreen_done(InfoScreen* this) {
+ void InfoScreen_drawTitled(InfoScreen* this, char* fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+-   attrset(CRT_colors[METER_TEXT]);
++   attrset(CRT_colors[COLOR_METER_TEXT]);
+    mvhline(0, 0, ' ', COLS);
+    wmove(stdscr, 0, 0);
+    vw_printw(stdscr, fmt, ap);
+-   attrset(CRT_colors[DEFAULT_COLOR]);
++   attrset(CRT_colors[COLOR_DEFAULT_COLOR]);
+    this->display->needsRedraw = true;
+    Panel_draw(this->display, true);
+    IncSet_drawBar(this->inc);
+diff --git a/ListItem.c b/ListItem.c
+index 05c5c0b3..3ca395c8 100644
+--- a/ListItem.c
++++ b/ListItem.c
+@@ -42,7 +42,7 @@ static void ListItem_display(Object* cast, RichString* out) {
+    xSnprintf(buffer, len, "%s", this->value);
+    */
+    if (this->moving) {
+-      RichString_write(out, CRT_colors[DEFAULT_COLOR],
++      RichString_write(out, CRT_colors[COLOR_DEFAULT_COLOR],
+ #ifdef HAVE_LIBNCURSESW
+             CRT_utf8 ? "↕ " :
+ #endif
+@@ -50,7 +50,7 @@ static void ListItem_display(Object* cast, RichString* out) {
+    } else {
+       RichString_prune(out);
+    }
+-   RichString_append(out, CRT_colors[DEFAULT_COLOR], this->value/*buffer*/);
++   RichString_append(out, CRT_colors[COLOR_DEFAULT_COLOR], this->value/*buffer*/);
+ }
+ 
+ ObjectClass ListItem_class = {
+diff --git a/LoadAverageMeter.c b/LoadAverageMeter.c
+index e29433f1..888dcdee 100644
+--- a/LoadAverageMeter.c
++++ b/LoadAverageMeter.c
+@@ -15,10 +15,10 @@ in the source distribution for its full text.
+ }*/
+ 
+ int LoadAverageMeter_attributes[] = {
+-   LOAD_AVERAGE_ONE, LOAD_AVERAGE_FIVE, LOAD_AVERAGE_FIFTEEN
++   COLOR_LOAD_AVERAGE_ONE, COLOR_LOAD_AVERAGE_FIVE, COLOR_LOAD_AVERAGE_FIFTEEN
+ };
+ 
+-int LoadMeter_attributes[] = { LOAD };
++int LoadMeter_attributes[] = { COLOR_LOAD };
+ 
+ static void LoadAverageMeter_updateValues(Meter* this, char* buffer, int size) {
+    Platform_getLoadAverage(&this->values[0], &this->values[1], &this->values[2]);
+@@ -29,11 +29,11 @@ static void LoadAverageMeter_display(Object* cast, RichString* out) {
+    Meter* this = (Meter*)cast;
+    char buffer[20];
+    xSnprintf(buffer, sizeof(buffer), "%.2f ", this->values[0]);
+-   RichString_write(out, CRT_colors[LOAD_AVERAGE_ONE], buffer);
++   RichString_write(out, CRT_colors[COLOR_LOAD_AVERAGE_ONE], buffer);
+    xSnprintf(buffer, sizeof(buffer), "%.2f ", this->values[1]);
+-   RichString_append(out, CRT_colors[LOAD_AVERAGE_FIVE], buffer);
++   RichString_append(out, CRT_colors[COLOR_LOAD_AVERAGE_FIVE], buffer);
+    xSnprintf(buffer, sizeof(buffer), "%.2f ", this->values[2]);
+-   RichString_append(out, CRT_colors[LOAD_AVERAGE_FIFTEEN], buffer);
++   RichString_append(out, CRT_colors[COLOR_LOAD_AVERAGE_FIFTEEN], buffer);
+ }
+ 
+ static void LoadMeter_updateValues(Meter* this, char* buffer, int size) {
+@@ -49,7 +49,7 @@ static void LoadMeter_display(Object* cast, RichString* out) {
+    Meter* this = (Meter*)cast;
+    char buffer[20];
+    xSnprintf(buffer, sizeof(buffer), "%.2f ", ((Meter*)this)->values[0]);
+-   RichString_write(out, CRT_colors[LOAD], buffer);
++   RichString_write(out, CRT_colors[COLOR_LOAD], buffer);
+ }
+ 
+ MeterClass LoadAverageMeter_class = {
+diff --git a/MainPanel.c b/MainPanel.c
+index 25023367..5339362b 100644
+--- a/MainPanel.c
++++ b/MainPanel.c
+@@ -133,7 +133,7 @@ static HandlerResult MainPanel_eventHandler(Panel* super, int ch) {
+    }
+    if (!(reaction & HTOP_KEEP_FOLLOWING)) {
+       this->state->pl->following = -1;
+-      Panel_setSelectionColor(super, CRT_colors[PANEL_SELECTION_FOCUS]);
++      Panel_setSelectionColor(super, CRT_colors[COLOR_PANEL_SELECTION_FOCUS]);
+    }
+    return result;
+ }
+diff --git a/MemoryMeter.c b/MemoryMeter.c
+index fbf5330c..1a331e58 100644
+--- a/MemoryMeter.c
++++ b/MemoryMeter.c
+@@ -21,7 +21,7 @@ in the source distribution for its full text.
+ }*/
+ 
+ int MemoryMeter_attributes[] = {
+-   MEMORY_USED, MEMORY_BUFFERS, MEMORY_CACHE
++   COLOR_MEMORY_USED, COLOR_MEMORY_BUFFERS, COLOR_MEMORY_CACHE
+ };
+ 
+ static void MemoryMeter_updateValues(Meter* this, char* buffer, int size) {
+@@ -40,18 +40,18 @@ static void MemoryMeter_updateValues(Meter* this, char* buffer, int size) {
+ static void MemoryMeter_display(Object* cast, RichString* out) {
+    char buffer[50];
+    Meter* this = (Meter*)cast;
+-   RichString_write(out, CRT_colors[METER_TEXT], ":");
++   RichString_write(out, CRT_colors[COLOR_METER_TEXT], ":");
+    Meter_humanUnit(buffer, this->total, 50);
+-   RichString_append(out, CRT_colors[METER_VALUE], buffer);
++   RichString_append(out, CRT_colors[COLOR_METER_VALUE], buffer);
+    Meter_humanUnit(buffer, this->values[0], 50);
+-   RichString_append(out, CRT_colors[METER_TEXT], " used:");
+-   RichString_append(out, CRT_colors[MEMORY_USED], buffer);
++   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " used:");
++   RichString_append(out, CRT_colors[COLOR_MEMORY_USED], buffer);
+    Meter_humanUnit(buffer, this->values[1], 50);
+-   RichString_append(out, CRT_colors[METER_TEXT], " buffers:");
+-   RichString_append(out, CRT_colors[MEMORY_BUFFERS_TEXT], buffer);
++   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " buffers:");
++   RichString_append(out, CRT_colors[COLOR_MEMORY_BUFFERS_TEXT], buffer);
+    Meter_humanUnit(buffer, this->values[2], 50);
+-   RichString_append(out, CRT_colors[METER_TEXT], " cache:");
+-   RichString_append(out, CRT_colors[MEMORY_CACHE], buffer);
++   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " cache:");
++   RichString_append(out, CRT_colors[COLOR_MEMORY_CACHE], buffer);
+ }
+ 
+ MeterClass MemoryMeter_class = {
+diff --git a/Meter.c b/Meter.c
+index 05a4eb23..991d6313 100644
+--- a/Meter.c
++++ b/Meter.c
+@@ -247,11 +247,11 @@ static void TextMeterMode_draw(Meter* this, int x, int y, int w) {
+    Meter_updateValues(this, buffer, METER_BUFFER_LEN - 1);
+    (void) w;
+ 
+-   attrset(CRT_colors[METER_TEXT]);
++   attrset(CRT_colors[COLOR_METER_TEXT]);
+    mvaddstr(y, x, this->caption);
+    int captionLen = strlen(this->caption);
+    x += captionLen;
+-   attrset(CRT_colors[RESET_COLOR]);
++   attrset(CRT_colors[COLOR_RESET_COLOR]);
+    RichString_begin(out);
+    Meter_displayBuffer(this, buffer, &out);
+    RichString_printVal(out, y, x);
+@@ -267,12 +267,12 @@ static void BarMeterMode_draw(Meter* this, int x, int y, int w) {
+    Meter_updateValues(this, buffer, METER_BUFFER_LEN - 1);
+ 
+    w -= 2;
+-   attrset(CRT_colors[METER_TEXT]);
++   attrset(CRT_colors[COLOR_METER_TEXT]);
+    int captionLen = 3;
+    mvaddnstr(y, x, this->caption, captionLen);
+    x += captionLen;
+    w -= captionLen;
+-   attrset(CRT_colors[BAR_BORDER]);
++   attrset(CRT_colors[COLOR_BAR_BORDER]);
+    mvaddch(y, x, '[');
+    mvaddch(y, x + w, ']');
+    
+@@ -280,7 +280,7 @@ static void BarMeterMode_draw(Meter* this, int x, int y, int w) {
+    x++;
+ 
+    if (w < 1) {
+-      attrset(CRT_colors[RESET_COLOR]);
++      attrset(CRT_colors[COLOR_RESET_COLOR]);
+       return;
+    }
+    char bar[w + 1];
+@@ -323,12 +323,12 @@ static void BarMeterMode_draw(Meter* this, int x, int y, int w) {
+       offset = CLAMP(offset, 0, w);
+    }
+    if (offset < w) {
+-      attrset(CRT_colors[BAR_SHADOW]);
++      attrset(CRT_colors[COLOR_BAR_SHADOW]);
+       mvaddnstr(y, x + offset, bar + offset, w - offset);
+    }
+ 
+    move(y, x + w + 1);
+-   attrset(CRT_colors[RESET_COLOR]);
++   attrset(CRT_colors[COLOR_RESET_COLOR]);
+ }
+ 
+ /* ---------- GraphMeterMode ---------- */
+@@ -373,7 +373,7 @@ static void GraphMeterMode_draw(Meter* this, int x, int y, int w) {
+       GraphMeterMode_pixPerRow = PIXPERROW_ASCII;
+    }
+ 
+-   attrset(CRT_colors[METER_TEXT]);
++   attrset(CRT_colors[COLOR_METER_TEXT]);
+    int captionLen = 3;
+    mvaddnstr(y, x, this->caption, captionLen);
+    x += captionLen;
+@@ -409,17 +409,17 @@ static void GraphMeterMode_draw(Meter* this, int x, int y, int w) {
+       int v1 = CLAMP((int) lround(data->values[i] * pix), 1, pix);
+       int v2 = CLAMP((int) lround(data->values[i+1] * pix), 1, pix);
+ 
+-      int colorIdx = GRAPH_1;
++      int colorIdx = COLOR_GRAPH_1;
+       for (int line = 0; line < GRAPH_HEIGHT; line++) {
+          int line1 = CLAMP(v1 - (GraphMeterMode_pixPerRow * (GRAPH_HEIGHT - 1 - line)), 0, GraphMeterMode_pixPerRow);
+          int line2 = CLAMP(v2 - (GraphMeterMode_pixPerRow * (GRAPH_HEIGHT - 1 - line)), 0, GraphMeterMode_pixPerRow);
+ 
+          attrset(CRT_colors[colorIdx]);
+          mvaddstr(y+line, x+k, GraphMeterMode_dots[line1 * (GraphMeterMode_pixPerRow + 1) + line2]);
+-         colorIdx = GRAPH_2;
++         colorIdx = COLOR_GRAPH_2;
+       }
+    }
+-   attrset(CRT_colors[RESET_COLOR]);
++   attrset(CRT_colors[COLOR_RESET_COLOR]);
+ }
+ 
+ /* ---------- LEDMeterMode ---------- */
+@@ -468,7 +468,7 @@ static void LEDMeterMode_draw(Meter* this, int x, int y, int w) {
+       CRT_utf8 ? y+1 :
+ #endif
+       y+2;
+-   attrset(CRT_colors[LED_COLOR]);
++   attrset(CRT_colors[COLOR_LED_COLOR]);
+    mvaddstr(yText, x, this->caption);
+    int xx = x + strlen(this->caption);
+    int len = RichString_sizeVal(out);
+@@ -482,7 +482,7 @@ static void LEDMeterMode_draw(Meter* this, int x, int y, int w) {
+          xx += 1;
+       }
+    }
+-   attrset(CRT_colors[RESET_COLOR]);
++   attrset(CRT_colors[COLOR_RESET_COLOR]);
+    RichString_end(out);
+ }
+ 
+@@ -531,7 +531,7 @@ static void BlankMeter_display(Object* cast, RichString* out) {
+ }
+ 
+ int BlankMeter_attributes[] = {
+-   DEFAULT_COLOR
++   COLOR_DEFAULT_COLOR
+ };
+ 
+ MeterClass BlankMeter_class = {
+diff --git a/MetersPanel.c b/MetersPanel.c
+index 3cf3e075..2286695b 100644
+--- a/MetersPanel.c
++++ b/MetersPanel.c
+@@ -61,10 +61,10 @@ void MetersPanel_setMoving(MetersPanel* this, bool moving) {
+       selected->moving = moving;
+    }
+    if (!moving) {
+-      Panel_setSelectionColor(super, CRT_colors[PANEL_SELECTION_FOCUS]);
++      Panel_setSelectionColor(super, CRT_colors[COLOR_PANEL_SELECTION_FOCUS]);
+       Panel_setDefaultBar(super);
+    } else {
+-      Panel_setSelectionColor(super, CRT_colors[PANEL_SELECTION_FOLLOW]);
++      Panel_setSelectionColor(super, CRT_colors[COLOR_PANEL_SELECTION_FOLLOW]);
+       super->currentBar = Meters_movingBar;
+    }
+    FunctionBar_draw(this->super.currentBar, NULL);
+diff --git a/Panel.c b/Panel.c
+index 1e53b4a4..574d72c0 100644
+--- a/Panel.c
++++ b/Panel.c
+@@ -122,7 +122,7 @@ void Panel_init(Panel* this, int x, int y, int w, int h, ObjectClass* type, bool
+    RichString_beginAllocated(this->header);
+    this->defaultBar = fuBar;
+    this->currentBar = fuBar;
+-   this->selectionColor = CRT_colors[PANEL_SELECTION_FOCUS];
++   this->selectionColor = CRT_colors[COLOR_PANEL_SELECTION_FOCUS];
+ }
+ 
+ void Panel_done(Panel* this) {
+@@ -145,7 +145,7 @@ RichString* Panel_getHeader(Panel* this) {
+ }
+ 
+ inline void Panel_setHeader(Panel* this, const char* header) {
+-   RichString_write(&(this->header), CRT_colors[PANEL_HEADER_FOCUS], header);
++   RichString_write(&(this->header), CRT_colors[COLOR_PANEL_HEADER_FOCUS], header);
+    this->needsRedraw = true;
+ }
+ 
+@@ -276,15 +276,15 @@ void Panel_draw(Panel* this, bool focus) {
+    int headerLen = RichString_sizeVal(this->header);
+    if (headerLen > 0) {
+       int attr = focus
+-               ? CRT_colors[PANEL_HEADER_FOCUS]
+-               : CRT_colors[PANEL_HEADER_UNFOCUS];
++               ? CRT_colors[COLOR_PANEL_HEADER_FOCUS]
++               : CRT_colors[COLOR_PANEL_HEADER_UNFOCUS];
+       attrset(attr);
+       mvhline(y, x, ' ', this->w);
+       if (scrollH < headerLen) {
+          RichString_printoffnVal(this->header, y, x, scrollH,
+             MIN(headerLen - scrollH, this->w));
+       }
+-      attrset(CRT_colors[RESET_COLOR]);
++      attrset(CRT_colors[COLOR_RESET_COLOR]);
+       y++;
+    }
+ 
+@@ -310,7 +310,7 @@ void Panel_draw(Panel* this, bool focus) {
+ 
+    int selectionColor = focus
+                  ? this->selectionColor
+-                 : CRT_colors[PANEL_SELECTION_UNFOCUS];
++                 : CRT_colors[COLOR_PANEL_SELECTION_UNFOCUS];
+ 
+    if (this->needsRedraw) {
+       int line = 0;
+@@ -331,7 +331,7 @@ void Panel_draw(Panel* this, bool focus) {
+          if (amt > 0)
+             RichString_printoffnVal(item, y + line, x, scrollH, amt);
+          if (selected)
+-            attrset(CRT_colors[RESET_COLOR]);
++            attrset(CRT_colors[COLOR_RESET_COLOR]);
+          RichString_end(item);
+          line++;
+       }
+@@ -362,7 +362,7 @@ void Panel_draw(Panel* this, bool focus) {
+       if (scrollH < newLen)
+          RichString_printoffnVal(new, y+this->selected - first, x,
+             scrollH, MIN(newLen - scrollH, this->w));
+-      attrset(CRT_colors[RESET_COLOR]);
++      attrset(CRT_colors[COLOR_RESET_COLOR]);
+       RichString_end(new);
+       RichString_end(old);
+    }
+diff --git a/Process.c b/Process.c
+index d6e30ee7..906fd1d6 100644
+--- a/Process.c
++++ b/Process.c
+@@ -217,12 +217,12 @@ void Process_humanNumber(RichString* str, unsigned long number, bool coloring) {
+    char buffer[11];
+    int len;
+    
+-   int largeNumberColor = CRT_colors[LARGE_NUMBER];
+-   int processMegabytesColor = CRT_colors[PROCESS_MEGABYTES];
+-   int processColor = CRT_colors[PROCESS];
++   int largeNumberColor = CRT_colors[COLOR_LARGE_NUMBER];
++   int processMegabytesColor = CRT_colors[COLOR_PROCESS_MEGABYTES];
++   int processColor = CRT_colors[COLOR_PROCESS];
+    if (!coloring) {
+-      largeNumberColor = CRT_colors[PROCESS];
+-      processMegabytesColor = CRT_colors[PROCESS];
++      largeNumberColor = CRT_colors[COLOR_PROCESS];
++      processMegabytesColor = CRT_colors[COLOR_PROCESS];
+    }
+  
+    if(number >= (10 * ONE_DECIMAL_M)) {
+@@ -264,19 +264,19 @@ void Process_humanNumber(RichString* str, unsigned long number, bool coloring) {
+ void Process_colorNumber(RichString* str, unsigned long long number, bool coloring) {
+    char buffer[14];
+ 
+-   int largeNumberColor = CRT_colors[LARGE_NUMBER];
+-   int processMegabytesColor = CRT_colors[PROCESS_MEGABYTES];
+-   int processColor = CRT_colors[PROCESS];
+-   int processShadowColor = CRT_colors[PROCESS_SHADOW];
++   int largeNumberColor = CRT_colors[COLOR_LARGE_NUMBER];
++   int processMegabytesColor = CRT_colors[COLOR_PROCESS_MEGABYTES];
++   int processColor = CRT_colors[COLOR_PROCESS];
++   int processShadowColor = CRT_colors[COLOR_PROCESS_SHADOW];
+    if (!coloring) {
+-      largeNumberColor = CRT_colors[PROCESS];
+-      processMegabytesColor = CRT_colors[PROCESS];
+-      processShadowColor = CRT_colors[PROCESS];
++      largeNumberColor = CRT_colors[COLOR_PROCESS];
++      processMegabytesColor = CRT_colors[COLOR_PROCESS];
++      processShadowColor = CRT_colors[COLOR_PROCESS];
+    }
+ 
+    if ((long long) number == -1LL) {
+       int len = snprintf(buffer, 13, "    no perm ");
+-      RichString_appendn(str, CRT_colors[PROCESS_SHADOW], buffer, len);
++      RichString_appendn(str, CRT_colors[COLOR_PROCESS_SHADOW], buffer, len);
+    } else if (number > 10000000000) {
+       xSnprintf(buffer, 13, "%11llu ", number / 1000);
+       RichString_appendn(str, largeNumberColor, buffer, 5);
+@@ -301,16 +301,16 @@ void Process_printTime(RichString* str, unsigned long long totalHundredths) {
+    char buffer[11];
+    if (hours >= 100) {
+       xSnprintf(buffer, 10, "%7lluh ", hours);
+-      RichString_append(str, CRT_colors[LARGE_NUMBER], buffer);
++      RichString_append(str, CRT_colors[COLOR_LARGE_NUMBER], buffer);
+    } else {
+       if (hours) {
+          xSnprintf(buffer, 10, "%2lluh", hours);
+-         RichString_append(str, CRT_colors[LARGE_NUMBER], buffer);
++         RichString_append(str, CRT_colors[COLOR_LARGE_NUMBER], buffer);
+          xSnprintf(buffer, 10, "%02d:%02d ", minutes, seconds);
+       } else {
+          xSnprintf(buffer, 10, "%2d:%02d.%02d ", minutes, seconds, hundredths);
+       }
+-      RichString_append(str, CRT_colors[DEFAULT_COLOR], buffer);
++      RichString_append(str, CRT_colors[COLOR_DEFAULT_COLOR], buffer);
+    }
+ }
+ 
+@@ -345,16 +345,16 @@ static inline void Process_writeCommand(Process* this, int attr, int baseattr, R
+ }
+ 
+ void Process_outputRate(RichString* str, char* buffer, int n, double rate, int coloring) {
+-   int largeNumberColor = CRT_colors[LARGE_NUMBER];
+-   int processMegabytesColor = CRT_colors[PROCESS_MEGABYTES];
+-   int processColor = CRT_colors[PROCESS];
++   int largeNumberColor = CRT_colors[COLOR_LARGE_NUMBER];
++   int processMegabytesColor = CRT_colors[COLOR_PROCESS_MEGABYTES];
++   int processColor = CRT_colors[COLOR_PROCESS];
+    if (!coloring) {
+-      largeNumberColor = CRT_colors[PROCESS];
+-      processMegabytesColor = CRT_colors[PROCESS];
++      largeNumberColor = CRT_colors[COLOR_PROCESS];
++      processMegabytesColor = CRT_colors[COLOR_PROCESS];
+    }
+    if (rate == -1) {
+       int len = snprintf(buffer, n, "    no perm ");
+-      RichString_appendn(str, CRT_colors[PROCESS_SHADOW], buffer, len);
++      RichString_appendn(str, CRT_colors[COLOR_PROCESS_SHADOW], buffer, len);
+    } else if (rate < ONE_K) {
+       int len = snprintf(buffer, n, "%7.2f B/s ", rate);
+       RichString_appendn(str, processColor, buffer, len);
+@@ -372,8 +372,8 @@ void Process_outputRate(RichString* str, char* buffer, int n, double rate, int c
+ 
+ void Process_writeField(Process* this, RichString* str, ProcessField field) {
+    char buffer[256]; buffer[255] = '\0';
+-   int attr = CRT_colors[DEFAULT_COLOR];
+-   int baseattr = CRT_colors[PROCESS_BASENAME];
++   int attr = CRT_colors[COLOR_DEFAULT_COLOR];
++   int baseattr = CRT_colors[COLOR_PROCESS_BASENAME];
+    int n = sizeof(buffer) - 1;
+    bool coloring = this->settings->highlightMegabytes;
+ 
+@@ -398,8 +398,8 @@ void Process_writeField(Process* this, RichString* str, ProcessField field) {
+    }
+    case COMM: {
+       if (this->settings->highlightThreads && Process_isThread(this)) {
+-         attr = CRT_colors[PROCESS_THREAD];
+-         baseattr = CRT_colors[PROCESS_THREAD_BASENAME];
++         attr = CRT_colors[COLOR_PROCESS_THREAD];
++         baseattr = CRT_colors[COLOR_PROCESS_THREAD_BASENAME];
+       }
+       if (!this->settings->treeView || this->indent == 0) {
+          Process_writeCommand(this, attr, baseattr, str);
+@@ -424,7 +424,7 @@ void Process_writeField(Process* this, RichString* str, ProcessField field) {
+          }
+          const char* draw = CRT_treeStr[lastItem ? (this->settings->direction == 1 ? TREE_STR_BEND : TREE_STR_TEND) : TREE_STR_RTEE];
+          xSnprintf(buf, n, "%s%s ", draw, this->showChildren ? CRT_treeStr[TREE_STR_SHUT] : CRT_treeStr[TREE_STR_OPEN] );
+-         RichString_append(str, CRT_colors[PROCESS_TREE], buffer);
++         RichString_append(str, CRT_colors[COLOR_PROCESS_TREE], buffer);
+          Process_writeCommand(this, attr, baseattr, str);
+          return;
+       }
+@@ -435,8 +435,8 @@ void Process_writeField(Process* this, RichString* str, ProcessField field) {
+    case M_SIZE: Process_humanNumber(str, this->m_size * PAGE_SIZE_KB, coloring); return;
+    case NICE: {
+       xSnprintf(buffer, n, "%3ld ", this->nice);
+-      attr = this->nice < 0 ? CRT_colors[PROCESS_HIGH_PRIORITY]
+-           : this->nice > 0 ? CRT_colors[PROCESS_LOW_PRIORITY]
++      attr = this->nice < 0 ? CRT_colors[COLOR_PROCESS_HIGH_PRIORITY]
++           : this->nice > 0 ? CRT_colors[COLOR_PROCESS_LOW_PRIORITY]
+            : attr;
+       break;
+    }
+@@ -458,10 +458,10 @@ void Process_writeField(Process* this, RichString* str, ProcessField field) {
+       xSnprintf(buffer, n, "%c ", this->state);
+       switch(this->state) {
+           case 'R':
+-              attr = CRT_colors[PROCESS_R_STATE];
++              attr = CRT_colors[COLOR_PROCESS_R_STATE];
+               break;
+           case 'D':
+-              attr = CRT_colors[PROCESS_D_STATE];
++              attr = CRT_colors[COLOR_PROCESS_D_STATE];
+               break;
+       }
+       break;
+@@ -473,7 +473,7 @@ void Process_writeField(Process* this, RichString* str, ProcessField field) {
+    case TTY_NR: xSnprintf(buffer, n, "%3u:%3u ", major(this->tty_nr), minor(this->tty_nr)); break;
+    case USER: {
+       if (Process_getuid != (int) this->st_uid)
+-         attr = CRT_colors[PROCESS_SHADOW];
++         attr = CRT_colors[COLOR_PROCESS_SHADOW];
+       if (this->user) {
+          xSnprintf(buffer, n, "%-9s ", this->user);
+       } else {
+@@ -498,9 +498,9 @@ void Process_display(Object* cast, RichString* out) {
+    for (int i = 0; fields[i]; i++)
+       As_Process(this)->writeField(this, out, fields[i]);
+    if (this->settings->shadowOtherUsers && (int)this->st_uid != Process_getuid)
+-      RichString_setAttr(out, CRT_colors[PROCESS_SHADOW]);
++      RichString_setAttr(out, CRT_colors[COLOR_PROCESS_SHADOW]);
+    if (this->tag == true)
+-      RichString_setAttr(out, CRT_colors[PROCESS_TAG]);
++      RichString_setAttr(out, CRT_colors[COLOR_PROCESS_TAG]);
+    assert(out->chlen > 0);
+ }
+ 
+diff --git a/ProcessList.c b/ProcessList.c
+index 7482b037..86a25337 100644
+--- a/ProcessList.c
++++ b/ProcessList.c
+@@ -129,9 +129,9 @@ void ProcessList_printHeader(ProcessList* this, RichString* header) {
+       const char* field = Process_fields[fields[i]].title;
+       if (!field) field = "- ";
+       if (!this->settings->treeView && this->settings->sortKey == fields[i])
+-         RichString_append(header, CRT_colors[PANEL_SELECTION_FOCUS], field);
++         RichString_append(header, CRT_colors[COLOR_PANEL_SELECTION_FOCUS], field);
+       else
+-         RichString_append(header, CRT_colors[PANEL_HEADER_FOCUS], field);
++         RichString_append(header, CRT_colors[COLOR_PANEL_HEADER_FOCUS], field);
+    }
+ }
+ 
+diff --git a/SwapMeter.c b/SwapMeter.c
+index 1406d6fb..62bef21b 100644
+--- a/SwapMeter.c
++++ b/SwapMeter.c
+@@ -21,7 +21,7 @@ in the source distribution for its full text.
+ }*/
+ 
+ int SwapMeter_attributes[] = {
+-   SWAP
++   COLOR_SWAP
+ };
+ 
+ static void SwapMeter_updateValues(Meter* this, char* buffer, int size) {
+@@ -40,12 +40,12 @@ static void SwapMeter_updateValues(Meter* this, char* buffer, int size) {
+ static void SwapMeter_display(Object* cast, RichString* out) {
+    char buffer[50];
+    Meter* this = (Meter*)cast;
+-   RichString_write(out, CRT_colors[METER_TEXT], ":");
++   RichString_write(out, CRT_colors[COLOR_METER_TEXT], ":");
+    Meter_humanUnit(buffer, this->total, 50);
+-   RichString_append(out, CRT_colors[METER_VALUE], buffer);
++   RichString_append(out, CRT_colors[COLOR_METER_VALUE], buffer);
+    Meter_humanUnit(buffer, this->values[0], 50);
+-   RichString_append(out, CRT_colors[METER_TEXT], " used:");
+-   RichString_append(out, CRT_colors[METER_VALUE], buffer);
++   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " used:");
++   RichString_append(out, CRT_colors[COLOR_METER_VALUE], buffer);
+ }
+ 
+ MeterClass SwapMeter_class = {
+diff --git a/TasksMeter.c b/TasksMeter.c
+index 8132e5ae..6fdeac30 100644
+--- a/TasksMeter.c
++++ b/TasksMeter.c
+@@ -15,7 +15,7 @@ in the source distribution for its full text.
+ }*/
+ 
+ int TasksMeter_attributes[] = {
+-   HTOP_CPU_KERNEL, PROCESS_THREAD, PROCESS, TASKS_RUNNING
++   COLOR_CPU_KERNEL, COLOR_PROCESS_THREAD, COLOR_PROCESS, COLOR_TASKS_RUNNING
+ };
+ 
+ static void TasksMeter_updateValues(Meter* this, char* buffer, int len) {
+@@ -41,29 +41,29 @@ static void TasksMeter_display(Object* cast, RichString* out) {
+    int processes = (int) this->values[2];
+    
+    xSnprintf(buffer, sizeof(buffer), "%d", processes);
+-   RichString_write(out, CRT_colors[METER_VALUE], buffer);
+-   int threadValueColor = CRT_colors[METER_VALUE];
+-   int threadCaptionColor = CRT_colors[METER_TEXT];
++   RichString_write(out, CRT_colors[COLOR_METER_VALUE], buffer);
++   int threadValueColor = CRT_colors[COLOR_METER_VALUE];
++   int threadCaptionColor = CRT_colors[COLOR_METER_TEXT];
+    if (settings->highlightThreads) {
+-      threadValueColor = CRT_colors[PROCESS_THREAD_BASENAME];
+-      threadCaptionColor = CRT_colors[PROCESS_THREAD];
++      threadValueColor = CRT_colors[COLOR_PROCESS_THREAD_BASENAME];
++      threadCaptionColor = CRT_colors[COLOR_PROCESS_THREAD];
+    }
+    if (!settings->hideUserlandThreads) {
+-      RichString_append(out, CRT_colors[METER_TEXT], ", ");
++      RichString_append(out, CRT_colors[COLOR_METER_TEXT], ", ");
+       xSnprintf(buffer, sizeof(buffer), "%d", (int)this->values[1]);
+       RichString_append(out, threadValueColor, buffer);
+       RichString_append(out, threadCaptionColor, " thr");
+    }
+    if (!settings->hideKernelThreads) {
+-      RichString_append(out, CRT_colors[METER_TEXT], ", ");
++      RichString_append(out, CRT_colors[COLOR_METER_TEXT], ", ");
+       xSnprintf(buffer, sizeof(buffer), "%d", (int)this->values[0]);
+       RichString_append(out, threadValueColor, buffer);
+       RichString_append(out, threadCaptionColor, " kthr");
+    }
+-   RichString_append(out, CRT_colors[METER_TEXT], "; ");
++   RichString_append(out, CRT_colors[COLOR_METER_TEXT], "; ");
+    xSnprintf(buffer, sizeof(buffer), "%d", (int)this->values[3]);
+-   RichString_append(out, CRT_colors[TASKS_RUNNING], buffer);
+-   RichString_append(out, CRT_colors[METER_TEXT], " running");
++   RichString_append(out, CRT_colors[COLOR_TASKS_RUNNING], buffer);
++   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " running");
+ }
+ 
+ MeterClass TasksMeter_class = {
+diff --git a/TraceScreen.c b/TraceScreen.c
+index 91f71ae8..611686a6 100644
+--- a/TraceScreen.c
++++ b/TraceScreen.c
+@@ -82,10 +82,10 @@ void TraceScreen_delete(Object* cast) {
+ }
+ 
+ void TraceScreen_draw(InfoScreen* this) {
+-   attrset(CRT_colors[PANEL_HEADER_FOCUS]);
++   attrset(CRT_colors[COLOR_PANEL_HEADER_FOCUS]);
+    mvhline(0, 0, ' ', COLS);
+    mvprintw(0, 0, "Trace of process %d - %s", this->process->pid, this->process->comm);
+-   attrset(CRT_colors[DEFAULT_COLOR]);
++   attrset(CRT_colors[COLOR_DEFAULT_COLOR]);
+    IncSet_drawBar(this->inc);
+ }
+ 
+diff --git a/UptimeMeter.c b/UptimeMeter.c
+index 61f60905..139b5293 100644
+--- a/UptimeMeter.c
++++ b/UptimeMeter.c
+@@ -14,7 +14,7 @@ in the source distribution for its full text.
+ }*/
+ 
+ int UptimeMeter_attributes[] = {
+-   UPTIME
++   COLOR_UPTIME
+ };
+ 
+ static void UptimeMeter_updateValues(Meter* this, char* buffer, int len) {
+diff --git a/dragonflybsd/DragonFlyBSDProcess.c b/dragonflybsd/DragonFlyBSDProcess.c
+index dade106d..5268969c 100644
+--- a/dragonflybsd/DragonFlyBSDProcess.c
++++ b/dragonflybsd/DragonFlyBSDProcess.c
+@@ -114,7 +114,7 @@ void Process_delete(Object* cast) {
+ void DragonFlyBSDProcess_writeField(Process* this, RichString* str, ProcessField field) {
+    DragonFlyBSDProcess* fp = (DragonFlyBSDProcess*) this;
+    char buffer[256]; buffer[255] = '\0';
+-   int attr = CRT_colors[DEFAULT_COLOR];
++   int attr = CRT_colors[COLOR_DEFAULT_COLOR];
+    int n = sizeof(buffer) - 1;
+    switch ((int) field) {
+    // add Platform-specific fields here
+diff --git a/freebsd/FreeBSDProcess.c b/freebsd/FreeBSDProcess.c
+index f81fadf5..a9414953 100644
+--- a/freebsd/FreeBSDProcess.c
++++ b/freebsd/FreeBSDProcess.c
+@@ -113,7 +113,7 @@ void Process_delete(Object* cast) {
+ void FreeBSDProcess_writeField(Process* this, RichString* str, ProcessField field) {
+    FreeBSDProcess* fp = (FreeBSDProcess*) this;
+    char buffer[256]; buffer[255] = '\0';
+-   int attr = CRT_colors[DEFAULT_COLOR];
++   int attr = CRT_colors[COLOR_DEFAULT_COLOR];
+    int n = sizeof(buffer) - 1;
+    switch ((int) field) {
+    // add FreeBSD-specific fields here
+diff --git a/htop.c b/htop.c
+index 8c88c782..f187438a 100644
+--- a/htop.c
++++ b/htop.c
+@@ -238,9 +238,9 @@ int main(int argc, char** argv) {
+ 
+    ScreenManager_run(scr, NULL, NULL);   
+    
+-   attron(CRT_colors[RESET_COLOR]);
++   attron(CRT_colors[COLOR_RESET_COLOR]);
+    mvhline(LINES-1, 0, ' ', COLS);
+-   attroff(CRT_colors[RESET_COLOR]);
++   attroff(CRT_colors[COLOR_RESET_COLOR]);
+    refresh();
+    
+    CRT_done();
+diff --git a/linux/LinuxProcess.c b/linux/LinuxProcess.c
+index 5f697078..eee74d85 100644
+--- a/linux/LinuxProcess.c
++++ b/linux/LinuxProcess.c
+@@ -325,14 +325,14 @@ void LinuxProcess_writeField(Process* this, RichString* str, ProcessField field)
+    LinuxProcess* lp = (LinuxProcess*) this;
+    bool coloring = this->settings->highlightMegabytes;
+    char buffer[256]; buffer[255] = '\0';
+-   int attr = CRT_colors[DEFAULT_COLOR];
++   int attr = CRT_colors[COLOR_DEFAULT_COLOR];
+    int n = sizeof(buffer) - 1;
+    switch ((int)field) {
+    case TTY_NR: {
+       if (lp->ttyDevice) {
+          xSnprintf(buffer, n, "%-9s", lp->ttyDevice + 5 /* skip "/dev/" */);
+       } else {
+-         attr = CRT_colors[PROCESS_SHADOW];
++         attr = CRT_colors[COLOR_PROCESS_SHADOW];
+          xSnprintf(buffer, n, "?        ");
+       }
+       break;
+@@ -391,10 +391,10 @@ void LinuxProcess_writeField(Process* this, RichString* str, ProcessField field)
+       } else if (klass == IOPRIO_CLASS_BE) {
+          xSnprintf(buffer, n, "B%1d ", IOPriority_data(lp->ioPriority));
+       } else if (klass == IOPRIO_CLASS_RT) {
+-         attr = CRT_colors[PROCESS_HIGH_PRIORITY];
++         attr = CRT_colors[COLOR_PROCESS_HIGH_PRIORITY];
+          xSnprintf(buffer, n, "R%1d ", IOPriority_data(lp->ioPriority));
+       } else if (klass == IOPRIO_CLASS_IDLE) {
+-         attr = CRT_colors[PROCESS_LOW_PRIORITY]; 
++         attr = CRT_colors[COLOR_PROCESS_LOW_PRIORITY]; 
+          xSnprintf(buffer, n, "id ");
+       } else {
+          xSnprintf(buffer, n, "?? ");
+diff --git a/openbsd/OpenBSDProcess.c b/openbsd/OpenBSDProcess.c
+index 70f9653b..8ac12ba1 100644
+--- a/openbsd/OpenBSDProcess.c
++++ b/openbsd/OpenBSDProcess.c
+@@ -201,7 +201,7 @@ void Process_delete(Object* cast) {
+ void OpenBSDProcess_writeField(Process* this, RichString* str, ProcessField field) {
+    //OpenBSDProcess* fp = (OpenBSDProcess*) this;
+    char buffer[256]; buffer[255] = '\0';
+-   int attr = CRT_colors[DEFAULT_COLOR];
++   int attr = CRT_colors[COLOR_DEFAULT_COLOR];
+    //int n = sizeof(buffer) - 1;
+    switch (field) {
+    // add OpenBSD-specific fields here
+diff --git a/solaris/SolarisProcess.c b/solaris/SolarisProcess.c
+index 31f488ef..c63d0fb3 100644
+--- a/solaris/SolarisProcess.c
++++ b/solaris/SolarisProcess.c
+@@ -140,7 +140,7 @@ void Process_delete(Object* cast) {
+ void SolarisProcess_writeField(Process* this, RichString* str, ProcessField field) {
+    SolarisProcess* sp = (SolarisProcess*) this;
+    char buffer[256]; buffer[255] = '\0';
+-   int attr = CRT_colors[DEFAULT_COLOR];
++   int attr = CRT_colors[COLOR_DEFAULT_COLOR];
+    int n = sizeof(buffer) - 1;
+    switch ((int) field) {
+    // add Solaris-specific fields here
+
+From ef9afd21119cfc762244692c0af550bb7d5db5b1 Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Thu, 3 Jan 2019 13:24:40 -0500
+Subject: [PATCH 09/28] Solaris: finally fix the process CPU time bug
+
+---
+ solaris/SolarisProcessList.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index 3786ebf4..fefad253 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -315,7 +315,7 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+       sproc->realppid       = _psinfo->pr_ppid;
+       // See note above (in common section) about this BINARY FRACTION
+       proc->percent_cpu     = ((uint16_t)_psinfo->pr_pctcpu/(double)32768)*(double)100.0;
+-      proc->time            = _psinfo->pr_time.tv_sec;
++      proc->time            = (_psinfo->pr_time.tv_sec * 100) + (_psinfo->pr_time.tv_nsec / 10000000);
+       if(!preExisting) { // Tasks done only for NEW processes
+          sproc->is_lwp = false;
+          proc->starttime_ctime = _psinfo->pr_start.tv_sec;
+@@ -338,7 +338,7 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+       proc->show = !(pl->settings->hideKernelThreads && sproc->kernel);
+    } else { // We are not in the master LWP, so jump to the LWP handling code
+       proc->percent_cpu        = ((uint16_t)_lwpsinfo->pr_pctcpu/(double)32768)*(double)100.0;
+-      proc->time               = _lwpsinfo->pr_time.tv_sec;
++      proc->time               = (_lwpsinfo->pr_time.tv_sec * 100) + (_lwpsinfo->pr_time.tv_nsec / 10000000);
+       if (!preExisting) { // Tasks done only for NEW LWPs
+          sproc->is_lwp         = true; 
+          proc->basenameOffset  = -1;
+
+From 5b3213fefeb880a2cad635ab0e0cdadae2b6bf2b Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Thu, 3 Jan 2019 15:53:55 -0500
+Subject: [PATCH 10/28] Solaris: early trial of getting per-zone memory usage
+
+---
+ solaris/SolarisProcessList.c | 46 ++++++++++++++++++++++++++++--------
+ solaris/SolarisProcessList.h |  1 +
+ 2 files changed, 37 insertions(+), 10 deletions(-)
+
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index fefad253..f6a2d5d4 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -22,6 +22,7 @@ in the source distribution for its full text.
+ #include <pwd.h>
+ #include <math.h>
+ #include <time.h>
++#include <sys/vm_usage.h>
+ 
+ #define MAXCMDLINE 255
+ 
+@@ -55,6 +56,7 @@ typedef struct SolarisProcessList_ {
+    ProcessList super;
+    kstat_ctl_t* kd;
+    CPUData* cpus;
++   zoneid_t this_zone;
+ } SolarisProcessList;
+ 
+ }*/
+@@ -85,6 +87,9 @@ ProcessList* ProcessList_new(UsersTable* usersTable, Hashtable* pidWhiteList, ui
+       abort();
+    }
+ 
++   // Get the zone of the running htop process.
++   spl->this_zone = getzoneid();
++
+    // ...as is failing to access sysconf data
+    if ( (pl->cpuCount = sysconf(_SC_NPROCESSORS_ONLN)) <= 0 ) {
+       fprintf(stderr, "\nThe sysconf() system call does not seem to be working.\n");
+@@ -193,24 +198,45 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+    int                 nswap = 0;
+    char                *spath = NULL; 
+    char                *spathbase = NULL;
++   vmusage_t           *vmu_vals = NULL;
++   size_t              nvmu_vals = 1;
++   size_t              vmu_vals_len = 0;
+ 
+    // Part 1 - physical memory
++   // This is done very differently for global vs. non-global zones, because
++   // the method needed for non-global, while capable of reporting system-wide
++   // usage, also provides much more limited detail.
++
+    if ( (meminfo = kstat_lookup(spl->kd,"unix",0,"system_pages")) != NULL) {
+       if ( (ksrphyserr = kstat_read(spl->kd,meminfo,NULL)) != -1) {
+          totalmem_pgs   = kstat_data_lookup( meminfo, "physmem" );
+          lockedmem_pgs  = kstat_data_lookup( meminfo, "pageslocked" );
+          pages          = kstat_data_lookup( meminfo, "pagestotal" );
+ 
+-         pl->totalMem   = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
+-         pl->usedMem    = lockedmem_pgs->value.ui64 * PAGE_SIZE_KB;
+-         // Not sure how to implement this on Solaris - suggestions welcome!
+-         pl->cachedMem  = 0;     
+-         // Not really "buffers" but the best Solaris analogue that I can find to
+-         // "memory in use but not by programs or the kernel itself"
+-         pl->buffersMem = (totalmem_pgs->value.ui64 - pages->value.ui64) * PAGE_SIZE_KB;
+-       }
+-   }
+-   
++         if (spl->this_zone == 0) {
++            // htop is running in the global zone, so get system-wide memory stats
++            pl->totalMem   = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
++            pl->usedMem    = lockedmem_pgs->value.ui64 * PAGE_SIZE_KB;
++            // Not sure how to implement this on Solaris - suggestions welcome!
++            pl->cachedMem  = 0;     
++            // Not really "buffers" but the best Solaris analogue that I can find to
++            // "memory in use but not by programs or the kernel itself"
++            pl->buffersMem = (totalmem_pgs->value.ui64 - pages->value.ui64) * PAGE_SIZE_KB;
++         } else {
++            // htop is running in a non-global zone, so only report mem stats for this zone
++            if ((vmu_vals = (vmusage_t *)calloc(1,sizeof(vmusage_t))) != NULL) {
++               if (getvmusage(VMUSAGE_ZONE, 0, vmu_vals, &nvmu_vals) == 0) { 
++                  pl->usedMem    = (uint64_t)vmu_vals[0].vmu_rss_all / (uint64_t)1024; // Returned in bytes, should be KiB for htop
++                  pl->cachedMem  = 0; // Not available for zones
++                  pl->buffersMem = 0; // Not available for zones
++                  pl->totalMem   = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
++               }
++               free(vmu_vals);
++            }
++         }
++      }
++   }  
++ 
+    // Part 2 - swap
+    if ( (nswap = swapctl(SC_GETNSWP, NULL)) > 0) {
+       if ( (sl = xMalloc((nswap * sizeof(swapent_t)) + sizeof(int))) != NULL) {
+diff --git a/solaris/SolarisProcessList.h b/solaris/SolarisProcessList.h
+index a5f2fbc2..968ca470 100644
+--- a/solaris/SolarisProcessList.h
++++ b/solaris/SolarisProcessList.h
+@@ -41,6 +41,7 @@ typedef struct SolarisProcessList_ {
+    ProcessList super;
+    kstat_ctl_t* kd;
+    CPUData* cpus;
++   zoneid_t this_zone;
+ } SolarisProcessList;
+ 
+ 
+
+From 5065a7131ab9ce7766e9d42fa21f6c94104fc04d Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Thu, 3 Jan 2019 16:54:33 -0500
+Subject: [PATCH 11/28] Solaris: start of a better graph for showing zone
+ memory limits
+
+---
+ solaris/SolarisProcessList.c | 24 +++++++++++++++---------
+ solaris/SolarisProcessList.h |  2 ++
+ 2 files changed, 17 insertions(+), 9 deletions(-)
+
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index f6a2d5d4..3aa15654 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -57,6 +57,8 @@ typedef struct SolarisProcessList_ {
+    kstat_ctl_t* kd;
+    CPUData* cpus;
+    zoneid_t this_zone;
++   size_t zone_used_phys;
++   size_t zone_max_phys;
+ } SolarisProcessList;
+ 
+ }*/
+@@ -191,6 +193,7 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+    kstat_named_t       *totalmem_pgs = NULL;
+    kstat_named_t       *lockedmem_pgs = NULL;
+    kstat_named_t       *pages = NULL;
++   kstat_named_t       *freemem_pgs = NULL;
+    struct swaptable    *sl = NULL;
+    struct swapent      *swapdev = NULL;
+    uint64_t            totalswap = 0;
+@@ -212,24 +215,27 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+          totalmem_pgs   = kstat_data_lookup( meminfo, "physmem" );
+          lockedmem_pgs  = kstat_data_lookup( meminfo, "pageslocked" );
+          pages          = kstat_data_lookup( meminfo, "pagestotal" );
++         freemem_pgs    = kstat_data_lookup( meminfo, "pagesfree" );
+ 
+          if (spl->this_zone == 0) {
+             // htop is running in the global zone, so get system-wide memory stats
+             pl->totalMem   = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
+-            pl->usedMem    = lockedmem_pgs->value.ui64 * PAGE_SIZE_KB;
+-            // Not sure how to implement this on Solaris - suggestions welcome!
+-            pl->cachedMem  = 0;     
+-            // Not really "buffers" but the best Solaris analogue that I can find to
+-            // "memory in use but not by programs or the kernel itself"
+-            pl->buffersMem = (totalmem_pgs->value.ui64 - pages->value.ui64) * PAGE_SIZE_KB;
++            pl->usedMem    = (totalmem_pgs->value.ui64 - freemem_pgs->value.ui64) * PAGE_SIZE_KB;
++            // Not sure how to implement these on Solaris - suggestions welcome!
++            pl->buffersMem = 0;     
++            pl->cachedMem  = 0;
++            spl->zone_used_phys = 0;
++            spl->zone_max_phys  = 0;
+          } else {
+             // htop is running in a non-global zone, so only report mem stats for this zone
+             if ((vmu_vals = (vmusage_t *)calloc(1,sizeof(vmusage_t))) != NULL) {
+                if (getvmusage(VMUSAGE_ZONE, 0, vmu_vals, &nvmu_vals) == 0) { 
+-                  pl->usedMem    = (uint64_t)vmu_vals[0].vmu_rss_all / (uint64_t)1024; // Returned in bytes, should be KiB for htop
+-                  pl->cachedMem  = 0; // Not available for zones
+-                  pl->buffersMem = 0; // Not available for zones
+                   pl->totalMem   = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
++                  pl->usedMem    = (totalmem_pgs->value.ui64 - freemem_pgs->value.ui64) * PAGE_SIZE_KB;
++                  // Not sure how to implement these on Solaris - suggestions welcome!
++                  pl->buffersMem = 0;       
++                  pl->cachedMem  = 0;
++                  spl->zone_used_phys = vmu_vals[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
+                }
+                free(vmu_vals);
+             }
+diff --git a/solaris/SolarisProcessList.h b/solaris/SolarisProcessList.h
+index 968ca470..f82ec98c 100644
+--- a/solaris/SolarisProcessList.h
++++ b/solaris/SolarisProcessList.h
+@@ -42,6 +42,8 @@ typedef struct SolarisProcessList_ {
+    kstat_ctl_t* kd;
+    CPUData* cpus;
+    zoneid_t this_zone;
++   size_t zone_used_phys;
++   size_t zone_max_phys;
+ } SolarisProcessList;
+ 
+ 
+
+From 90e75995c1f0ca4029e8c595a43cc4ce17596a34 Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Fri, 4 Jan 2019 10:24:50 -0500
+Subject: [PATCH 12/28] Solaris: start work on a custom memory meter for zones
+
+---
+ solaris/Platform.c           |  4 +-
+ solaris/SolarisMemoryMeter.c | 71 ++++++++++++++++++++++++++++++++++++
+ solaris/SolarisMemoryMeter.h | 18 +++++++++
+ 3 files changed, 91 insertions(+), 2 deletions(-)
+ create mode 100644 solaris/SolarisMemoryMeter.c
+ create mode 100644 solaris/SolarisMemoryMeter.h
+
+diff --git a/solaris/Platform.c b/solaris/Platform.c
+index a29fcb47..1fd5f979 100644
+--- a/solaris/Platform.c
++++ b/solaris/Platform.c
+@@ -10,7 +10,7 @@ in the source distribution for its full text.
+ #include "Platform.h"
+ #include "Meter.h"
+ #include "CPUMeter.h"
+-#include "MemoryMeter.h"
++#include "SolarisMemoryMeter.h"
+ #include "SwapMeter.h"
+ #include "TasksMeter.h"
+ #include "LoadAverageMeter.h"
+@@ -110,7 +110,7 @@ MeterClass* Platform_meterTypes[] = {
+    &ClockMeter_class,
+    &LoadAverageMeter_class,
+    &LoadMeter_class,
+-   &MemoryMeter_class,
++   &SolarisMemoryMeter_class,
+    &SwapMeter_class,
+    &TasksMeter_class,
+    &BatteryMeter_class,
+diff --git a/solaris/SolarisMemoryMeter.c b/solaris/SolarisMemoryMeter.c
+new file mode 100644
+index 00000000..071b47c6
+--- /dev/null
++++ b/solaris/SolarisMemoryMeter.c
+@@ -0,0 +1,71 @@
++/*
++htop - SolarisMemoryMeter.c
++(C) 2004-2011 Hisham H. Muhammad
++Released under the GNU GPL, see the COPYING file
++in the source distribution for its full text.
++*/
++
++#include "SolarisMemoryMeter.h"
++
++#include "CRT.h"
++#include "Platform.h"
++
++#include <stdlib.h>
++#include <string.h>
++#include <math.h>
++#include <sys/param.h>
++#include <assert.h>
++
++/*{
++#include "Meter.h"
++}*/
++
++int SolarisMemoryMeter_attributes[] = {
++   COLOR_MEMORY_USED, COLOR_MEMORY_BUFFERS, COLOR_MEMORY_CACHE
++};
++
++static void SolarisMemoryMeter_updateValues(Meter* this, char* buffer, int size) {
++   int written;
++   Platform_setMemoryValues(this);
++
++   written = Meter_humanUnit(buffer, this->values[0], size);
++   buffer += written;
++   if ((size -= written) > 0) {
++      *buffer++ = '/';
++      size--;
++      Meter_humanUnit(buffer, this->total, size);
++   }
++}
++
++static void SolarisMemoryMeter_display(Object* cast, RichString* out) {
++   char buffer[50];
++   Meter* this = (Meter*)cast;
++   RichString_write(out, CRT_colors[COLOR_METER_TEXT], ":");
++   Meter_humanUnit(buffer, this->total, 50);
++   RichString_append(out, CRT_colors[COLOR_METER_VALUE], buffer);
++   Meter_humanUnit(buffer, this->values[0], 50);
++   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " used:");
++   RichString_append(out, CRT_colors[COLOR_MEMORY_USED], buffer);
++   Meter_humanUnit(buffer, this->values[1], 50);
++   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " buffers:");
++   RichString_append(out, CRT_colors[COLOR_MEMORY_BUFFERS_TEXT], buffer);
++   Meter_humanUnit(buffer, this->values[2], 50);
++   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " cache:");
++   RichString_append(out, CRT_colors[COLOR_MEMORY_CACHE], buffer);
++}
++
++MeterClass SolarisMemoryMeter_class = {
++   .super = {
++      .extends = Class(Meter),
++      .delete = Meter_delete,
++      .display = SolarisMemoryMeter_display,
++   },
++   .updateValues = SolarisMemoryMeter_updateValues, 
++   .defaultMode = BAR_METERMODE,
++   .maxItems = 3,
++   .total = 100.0,
++   .attributes = SolarisMemoryMeter_attributes,
++   .name = "Memory",
++   .uiName = "Memory",
++   .caption = "Mem"
++};
+diff --git a/solaris/SolarisMemoryMeter.h b/solaris/SolarisMemoryMeter.h
+new file mode 100644
+index 00000000..a73ca173
+--- /dev/null
++++ b/solaris/SolarisMemoryMeter.h
+@@ -0,0 +1,18 @@
++/* Do not edit this file. It was automatically generated. */
++
++#ifndef HEADER_SolarisMemoryMeter
++#define HEADER_SolarisMemoryMeter
++/*
++htop - SolarisMemoryMeter.h
++(C) 2004-2011 Hisham H. Muhammad
++Released under the GNU GPL, see the COPYING file
++in the source distribution for its full text.
++*/
++
++#include "Meter.h"
++
++extern int SolarisMemoryMeter_attributes[];
++
++extern MeterClass SolarisMemoryMeter_class;
++
++#endif
+
+From 42da5aae0f672079b442f80141da43db32ef3650 Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Fri, 4 Jan 2019 10:28:19 -0500
+Subject: [PATCH 13/28] Solaris: integrate custom memory meter into build
+ process
+
+---
+ Makefile.am | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index 7d19600f..2d36cb8f 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -143,6 +143,7 @@ endif
+ 
+ solaris_platform_headers = \
+ 	solaris/Platform.h \
++	solaris/SolarisMemoryMeter.h \
+ 	solaris/SolarisProcess.h \
+ 	solaris/SolarisProcessList.h \
+ 	solaris/SolarisCRT.h \
+@@ -153,7 +154,8 @@ all_platform_headers += $(solaris_platform_headers)
+ if HTOP_SOLARIS
+ myhtopplatsources = solaris/Platform.c \
+ solaris/SolarisProcess.c solaris/SolarisProcessList.c \
+-solaris/SolarisCRT.c solaris/Battery.c
++solaris/SolarisCRT.c solaris/Battery.c \
++solaris/SolarisMemoryMeter.c
+ 
+ myhtopplatheaders = $(solaris_platform_headers)
+ endif
+
+From e55caf781c0b21e23ab6931fe53ad9830eb49e8c Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Fri, 4 Jan 2019 10:49:19 -0500
+Subject: [PATCH 14/28] Solaris: custom memory meter is wired up.  Zone quota
+ is a no-op at the moment.
+
+---
+ solaris/Platform.c           |  5 +++--
+ solaris/SolarisMemoryMeter.c |  4 ++--
+ solaris/SolarisProcessList.c | 20 ++++++++------------
+ solaris/SolarisProcessList.h |  4 ++--
+ 4 files changed, 15 insertions(+), 18 deletions(-)
+
+diff --git a/solaris/Platform.c b/solaris/Platform.c
+index 1fd5f979..5ad7e562 100644
+--- a/solaris/Platform.c
++++ b/solaris/Platform.c
+@@ -208,10 +208,11 @@ double Platform_setCPUValues(Meter* this, int cpu) {
+ 
+ void Platform_setMemoryValues(Meter* this) {
+    ProcessList* pl = (ProcessList*) this->pl;
++   SolarisProcessList* spl = (SolarisProcessList*) this->pl;
+    this->total = pl->totalMem;
+    this->values[0] = pl->usedMem;
+-   this->values[1] = pl->buffersMem;
+-   this->values[2] = pl->cachedMem;
++   this->values[1] = spl->zmaxmem;
++   this->values[2] = spl->sysusedmem;
+ }
+ 
+ void Platform_setSwapValues(Meter* this) {
+diff --git a/solaris/SolarisMemoryMeter.c b/solaris/SolarisMemoryMeter.c
+index 071b47c6..6ac5f0a7 100644
+--- a/solaris/SolarisMemoryMeter.c
++++ b/solaris/SolarisMemoryMeter.c
+@@ -47,10 +47,10 @@ static void SolarisMemoryMeter_display(Object* cast, RichString* out) {
+    RichString_append(out, CRT_colors[COLOR_METER_TEXT], " used:");
+    RichString_append(out, CRT_colors[COLOR_MEMORY_USED], buffer);
+    Meter_humanUnit(buffer, this->values[1], 50);
+-   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " buffers:");
++   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " zone limit:");
+    RichString_append(out, CRT_colors[COLOR_MEMORY_BUFFERS_TEXT], buffer);
+    Meter_humanUnit(buffer, this->values[2], 50);
+-   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " cache:");
++   RichString_append(out, CRT_colors[COLOR_METER_TEXT], " system used:");
+    RichString_append(out, CRT_colors[COLOR_MEMORY_CACHE], buffer);
+ }
+ 
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index 3aa15654..f5827b23 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -57,8 +57,8 @@ typedef struct SolarisProcessList_ {
+    kstat_ctl_t* kd;
+    CPUData* cpus;
+    zoneid_t this_zone;
+-   size_t zone_used_phys;
+-   size_t zone_max_phys;
++   size_t zmaxmem;
++   size_t sysusedmem;
+ } SolarisProcessList;
+ 
+ }*/
+@@ -222,20 +222,16 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+             pl->totalMem   = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
+             pl->usedMem    = (totalmem_pgs->value.ui64 - freemem_pgs->value.ui64) * PAGE_SIZE_KB;
+             // Not sure how to implement these on Solaris - suggestions welcome!
+-            pl->buffersMem = 0;     
+-            pl->cachedMem  = 0;
+-            spl->zone_used_phys = 0;
+-            spl->zone_max_phys  = 0;
++            spl->zmaxmem = 0;
++            spl->sysusedmem  = 0;
+          } else {
+             // htop is running in a non-global zone, so only report mem stats for this zone
+             if ((vmu_vals = (vmusage_t *)calloc(1,sizeof(vmusage_t))) != NULL) {
+                if (getvmusage(VMUSAGE_ZONE, 0, vmu_vals, &nvmu_vals) == 0) { 
+-                  pl->totalMem   = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
+-                  pl->usedMem    = (totalmem_pgs->value.ui64 - freemem_pgs->value.ui64) * PAGE_SIZE_KB;
+-                  // Not sure how to implement these on Solaris - suggestions welcome!
+-                  pl->buffersMem = 0;       
+-                  pl->cachedMem  = 0;
+-                  spl->zone_used_phys = vmu_vals[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
++                  pl->totalMem    = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
++                  spl->zmaxmem    = 0;
++                  spl->sysusedmem = (totalmem_pgs->value.ui64 - freemem_pgs->value.ui64) * PAGE_SIZE_KB;
++                  pl->usedMem     = vmu_vals[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
+                }
+                free(vmu_vals);
+             }
+diff --git a/solaris/SolarisProcessList.h b/solaris/SolarisProcessList.h
+index f82ec98c..6dc47971 100644
+--- a/solaris/SolarisProcessList.h
++++ b/solaris/SolarisProcessList.h
+@@ -42,8 +42,8 @@ typedef struct SolarisProcessList_ {
+    kstat_ctl_t* kd;
+    CPUData* cpus;
+    zoneid_t this_zone;
+-   size_t zone_used_phys;
+-   size_t zone_max_phys;
++   size_t zmaxmem;
++   size_t sysusedmem;
+ } SolarisProcessList;
+ 
+ 
+
+From 7ffd68e76460131301622cb2e36c2562d2068ca4 Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Fri, 4 Jan 2019 11:01:36 -0500
+Subject: [PATCH 15/28] Solaris: only show system used memory in zone views
+ when it is greater than the zone limit
+
+---
+ solaris/SolarisProcessList.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index f5827b23..4c6721ed 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -191,8 +191,6 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+    kstat_t             *meminfo = NULL;
+    int                 ksrphyserr = -1;
+    kstat_named_t       *totalmem_pgs = NULL;
+-   kstat_named_t       *lockedmem_pgs = NULL;
+-   kstat_named_t       *pages = NULL;
+    kstat_named_t       *freemem_pgs = NULL;
+    struct swaptable    *sl = NULL;
+    struct swapent      *swapdev = NULL;
+@@ -203,7 +201,7 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+    char                *spathbase = NULL;
+    vmusage_t           *vmu_vals = NULL;
+    size_t              nvmu_vals = 1;
+-   size_t              vmu_vals_len = 0;
++   size_t              real_sys_used = 0;
+ 
+    // Part 1 - physical memory
+    // This is done very differently for global vs. non-global zones, because
+@@ -213,8 +211,6 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+    if ( (meminfo = kstat_lookup(spl->kd,"unix",0,"system_pages")) != NULL) {
+       if ( (ksrphyserr = kstat_read(spl->kd,meminfo,NULL)) != -1) {
+          totalmem_pgs   = kstat_data_lookup( meminfo, "physmem" );
+-         lockedmem_pgs  = kstat_data_lookup( meminfo, "pageslocked" );
+-         pages          = kstat_data_lookup( meminfo, "pagestotal" );
+          freemem_pgs    = kstat_data_lookup( meminfo, "pagesfree" );
+ 
+          if (spl->this_zone == 0) {
+@@ -229,8 +225,13 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+             if ((vmu_vals = (vmusage_t *)calloc(1,sizeof(vmusage_t))) != NULL) {
+                if (getvmusage(VMUSAGE_ZONE, 0, vmu_vals, &nvmu_vals) == 0) { 
+                   pl->totalMem    = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
+-                  spl->zmaxmem    = 0;
+-                  spl->sysusedmem = (totalmem_pgs->value.ui64 - freemem_pgs->value.ui64) * PAGE_SIZE_KB;
++                  spl->zmaxmem    = 0; // Quota minus pl->usedMem
++                  real_sys_used = (totalmem_pgs->value.ui64 - freemem_pgs->value.ui64) * PAGE_SIZE_KB;
++                  if ( real_sys_used > spl->zmaxmem ) {
++                     spl->sysusedmem = real_sys_used - spl->zmaxmem;
++                  } else {
++                     spl->sysusedmem = 0;
++                  }
+                   pl->usedMem     = vmu_vals[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
+                }
+                free(vmu_vals);
+
+From ac0f94697cf4382d90cafd4a2c22cb6e4f393507 Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Fri, 4 Jan 2019 15:18:14 -0500
+Subject: [PATCH 16/28] Solaris: Implement kernel vs running-htop architecture
+ detection to correctly gather zone stats
+
+---
+ solaris/SolarisProcessList.c | 99 ++++++++++++++++++++++++++++++------
+ solaris/SolarisProcessList.h |  6 +++
+ 2 files changed, 89 insertions(+), 16 deletions(-)
+
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index 4c6721ed..571c86c7 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -23,6 +23,7 @@ in the source distribution for its full text.
+ #include <math.h>
+ #include <time.h>
+ #include <sys/vm_usage.h>
++#include <sys/systeminfo.h>
+ 
+ #define MAXCMDLINE 255
+ 
+@@ -59,10 +60,34 @@ typedef struct SolarisProcessList_ {
+    zoneid_t this_zone;
+    size_t zmaxmem;
+    size_t sysusedmem;
++   char* karch;
++   uint_t kbitness;
++   char* earch;
++   uint_t ebitness;
+ } SolarisProcessList;
+ 
+ }*/
+ 
++// Used in case htop is 32-bit but we're on a 64-bit kernel
++typedef struct htop_vmusage64 {
++	id_t vmu_zoneid;
++	uint_t vmu_type;
++	id_t vmu_id;
++	int alignment_padding;
++	uint64_t vmu_rss_all;
++	uint64_t vmu_rss_private;
++	uint64_t vmu_rss_shared;
++	uint64_t vmu_swap_all;
++	uint64_t vmu_swap_private;
++	uint64_t vmu_swap_shared;
++} htop_vmusage64_t;
++
++static uint_t get_bitness(const char *isa) {
++   if (strcmp(isa, "sparc") == 0 || strcmp(isa, "i386") == 0) return (32); 
++   if (strcmp(isa, "sparcv9") == 0 || strcmp(isa, "amd64") == 0) return (64);
++   return (0);
++}
++
+ char* SolarisProcessList_readZoneName(kstat_ctl_t* kd, SolarisProcess* sproc) {
+   char* zname;
+   if ( sproc->zoneid == 0 ) {
+@@ -89,15 +114,40 @@ ProcessList* ProcessList_new(UsersTable* usersTable, Hashtable* pidWhiteList, ui
+       abort();
+    }
+ 
+-   // Get the zone of the running htop process.
+-   spl->this_zone = getzoneid();
+-
+    // ...as is failing to access sysconf data
+    if ( (pl->cpuCount = sysconf(_SC_NPROCESSORS_ONLN)) <= 0 ) {
+       fprintf(stderr, "\nThe sysconf() system call does not seem to be working.\n");
+       abort();
+    }
+ 
++   // Get the zone of the running htop process.
++   spl->this_zone = getzoneid();
++
++   spl->karch = (char *)calloc(8,sizeof(char));
++   spl->earch = (char *)calloc(8,sizeof(char));
++
++   // Various info on the architecture of the kernel and the current binary
++   // which is needed to correctly get zone memory usage and limit info
++   if (sysinfo(SI_ARCHITECTURE_K,spl->karch,8) == -1) {   
++      fprintf(stderr, "\nUnable to determine kernel architecture.\n");
++      abort();
++   }
++    
++   if ((spl->kbitness = get_bitness(spl->karch)) == 0) {
++      fprintf(stderr, "\nUnable to determine kernel bitness.\n");
++      abort();
++   }
++
++   if (sysinfo(SI_ARCHITECTURE_NATIVE,spl->earch,8) == -1) {
++      fprintf(stderr, "\nUnable to determine architecture of this program.\n");
++      abort();
++   }
++
++   if ((spl->ebitness = get_bitness(spl->earch)) == 0) {
++      fprintf(stderr, "\nUnable to determine bitness of this program.\n");
++      abort();
++   }
++
+    // The extra "cpu" for spl->cpus > 1 is to store aggregate data for all CPUs
+    if (pl->cpuCount == 1 ) {
+       spl->cpus = xRealloc(spl->cpus, sizeof(CPUData));
+@@ -199,6 +249,7 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+    int                 nswap = 0;
+    char                *spath = NULL; 
+    char                *spathbase = NULL;
++   htop_vmusage64_t    *vmu_vals64 = NULL;
+    vmusage_t           *vmu_vals = NULL;
+    size_t              nvmu_vals = 1;
+    size_t              real_sys_used = 0;
+@@ -222,20 +273,34 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+             spl->sysusedmem  = 0;
+          } else {
+             // htop is running in a non-global zone, so only report mem stats for this zone
+-            if ((vmu_vals = (vmusage_t *)calloc(1,sizeof(vmusage_t))) != NULL) {
+-               if (getvmusage(VMUSAGE_ZONE, 0, vmu_vals, &nvmu_vals) == 0) { 
+-                  pl->totalMem    = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
+-                  spl->zmaxmem    = 0; // Quota minus pl->usedMem
+-                  real_sys_used = (totalmem_pgs->value.ui64 - freemem_pgs->value.ui64) * PAGE_SIZE_KB;
+-                  if ( real_sys_used > spl->zmaxmem ) {
+-                     spl->sysusedmem = real_sys_used - spl->zmaxmem;
+-                  } else {
+-                     spl->sysusedmem = 0;
+-                  }
+-                  pl->usedMem     = vmu_vals[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
+-               }
+-               free(vmu_vals);
++            pl->totalMem    = totalmem_pgs->value.ui64 * PAGE_SIZE_KB;
++            spl->zmaxmem    = 0;
++            real_sys_used   = (totalmem_pgs->value.ui64 - freemem_pgs->value.ui64) * PAGE_SIZE_KB;
++            vmu_vals        = (vmusage_t *)calloc(1,sizeof(vmusage_t));
++            vmu_vals64      = (htop_vmusage64_t *)calloc(1,sizeof(htop_vmusage64_t));
++
++            if ( spl->kbitness == spl->ebitness ) {
++               // htop is kernel-native bitness, 32 or 64
++               getvmusage(VMUSAGE_ZONE, 1, vmu_vals, &nvmu_vals); 
++               pl->usedMem  = vmu_vals[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
++            } else if ( spl->kbitness == 64 ) {
++               // htop is not kernel native bitness, e.g. 32-bit htop with a 64-bit kernel
++               getvmusage(VMUSAGE_ZONE, 1, vmu_vals64, &nvmu_vals);
++               pl->usedMem  = vmu_vals64[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
++            } else {
++               // Huh?  64-bit app on a 32-bit kernel?  Nope.  Maybe it's 2030 and 128-bit architectures
++               // are now a thing?
++               pl->usedMem  = 0;
+             }
++               
++            if ( real_sys_used > spl->zmaxmem ) {
++               spl->sysusedmem = real_sys_used - spl->zmaxmem;
++            } else {
++               spl->sysusedmem = 0;
++            }
++
++            free(vmu_vals);
++            free(vmu_vals64);
+          }
+       }
+    }  
+@@ -270,6 +335,8 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+ void ProcessList_delete(ProcessList* pl) {
+    SolarisProcessList* spl = (SolarisProcessList*) pl;
+    ProcessList_done(pl);
++   free(spl->earch);
++   free(spl->karch);
+    free(spl->cpus);
+    kstat_close(spl->kd);
+    free(spl);
+diff --git a/solaris/SolarisProcessList.h b/solaris/SolarisProcessList.h
+index 6dc47971..715884ee 100644
+--- a/solaris/SolarisProcessList.h
++++ b/solaris/SolarisProcessList.h
+@@ -44,9 +44,15 @@ typedef struct SolarisProcessList_ {
+    zoneid_t this_zone;
+    size_t zmaxmem;
+    size_t sysusedmem;
++   char* karch;
++   uint_t kbitness;
++   char* earch;
++   uint_t ebitness;
+ } SolarisProcessList;
+ 
+ 
++// Used in case htop is 32-bit but we're on a 64-bit kernel
++
+ char* SolarisProcessList_readZoneName(kstat_ctl_t* kd, SolarisProcess* sproc);
+ 
+ ProcessList* ProcessList_new(UsersTable* usersTable, Hashtable* pidWhiteList, uid_t userId);
+
+From b510b576d285a2eef44c009f29f686cde4a48f81 Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Fri, 4 Jan 2019 15:43:28 -0500
+Subject: [PATCH 17/28] Solaris: cap-aware memory meter for zones is now fully
+ wired up
+
+---
+ solaris/SolarisProcessList.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index 571c86c7..c8c37358 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -246,6 +246,7 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+    struct swapent      *swapdev = NULL;
+    uint64_t            totalswap = 0;
+    uint64_t            totalfree = 0;
++   uint64_t            zramcap = 0;
+    int                 nswap = 0;
+    char                *spath = NULL; 
+    char                *spathbase = NULL;
+@@ -253,6 +254,7 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+    vmusage_t           *vmu_vals = NULL;
+    size_t              nvmu_vals = 1;
+    size_t              real_sys_used = 0;
++   int                 ret;
+ 
+    // Part 1 - physical memory
+    // This is done very differently for global vs. non-global zones, because
+@@ -281,18 +283,22 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+ 
+             if ( spl->kbitness == spl->ebitness ) {
+                // htop is kernel-native bitness, 32 or 64
+-               getvmusage(VMUSAGE_ZONE, 1, vmu_vals, &nvmu_vals); 
++               getvmusage(VMUSAGE_ZONE, 0, vmu_vals, &nvmu_vals); 
+                pl->usedMem  = vmu_vals[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
+             } else if ( spl->kbitness == 64 ) {
+                // htop is not kernel native bitness, e.g. 32-bit htop with a 64-bit kernel
+-               getvmusage(VMUSAGE_ZONE, 1, vmu_vals64, &nvmu_vals);
++               getvmusage(VMUSAGE_ZONE, 0, vmu_vals64, &nvmu_vals);
+                pl->usedMem  = vmu_vals64[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
+             } else {
+                // Huh?  64-bit app on a 32-bit kernel?  Nope.  Maybe it's 2030 and 128-bit architectures
+                // are now a thing?
+                pl->usedMem  = 0;
+             }
+-               
++
++            ret = zone_getattr(spl->this_zone,ZONE_ATTR_PHYS_MCAP,&zramcap,sizeof(zramcap)); 
++            if ( ret < 0 ) zramcap = 0;
++
++            spl->zmaxmem = zramcap / 1024;               
+             if ( real_sys_used > spl->zmaxmem ) {
+                spl->sysusedmem = real_sys_used - spl->zmaxmem;
+             } else {
+
+From a50cdf574d16da77a4d377ed75b814e3928dcb80 Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Fri, 4 Jan 2019 16:05:18 -0500
+Subject: [PATCH 18/28] Solaris: make the system used memory shadowed when used
+ in a zone
+
+---
+ solaris/SolarisMemoryMeter.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/solaris/SolarisMemoryMeter.c b/solaris/SolarisMemoryMeter.c
+index 6ac5f0a7..ca4ac521 100644
+--- a/solaris/SolarisMemoryMeter.c
++++ b/solaris/SolarisMemoryMeter.c
+@@ -21,7 +21,7 @@ in the source distribution for its full text.
+ }*/
+ 
+ int SolarisMemoryMeter_attributes[] = {
+-   COLOR_MEMORY_USED, COLOR_MEMORY_BUFFERS, COLOR_MEMORY_CACHE
++   COLOR_MEMORY_USED, COLOR_MEMORY_BUFFERS, COLOR_PROCESS_SHADOW
+ };
+ 
+ static void SolarisMemoryMeter_updateValues(Meter* this, char* buffer, int size) {
+@@ -51,7 +51,7 @@ static void SolarisMemoryMeter_display(Object* cast, RichString* out) {
+    RichString_append(out, CRT_colors[COLOR_MEMORY_BUFFERS_TEXT], buffer);
+    Meter_humanUnit(buffer, this->values[2], 50);
+    RichString_append(out, CRT_colors[COLOR_METER_TEXT], " system used:");
+-   RichString_append(out, CRT_colors[COLOR_MEMORY_CACHE], buffer);
++   RichString_append(out, CRT_colors[COLOR_PROCESS_SHADOW], buffer);
+ }
+ 
+ MeterClass SolarisMemoryMeter_class = {
+
+From 67ae7a3a2ca7960c8ed5d0dacaee937f5749406f Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Wed, 9 Jan 2019 10:24:18 -0500
+Subject: [PATCH 19/28] Solaris: collect data model (32- or 64-bit) of each
+ process for display
+
+---
+ solaris/SolarisProcess.c     | 1 +
+ solaris/SolarisProcessList.c | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/solaris/SolarisProcess.c b/solaris/SolarisProcess.c
+index c63d0fb3..16fc8524 100644
+--- a/solaris/SolarisProcess.c
++++ b/solaris/SolarisProcess.c
+@@ -49,6 +49,7 @@ typedef struct SolarisProcess_ {
+    pid_t      realpid;
+    pid_t      realppid;
+    pid_t      lwpid;
++   char       dmodel;
+ } SolarisProcess;
+ 
+ 
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index c8c37358..89e29c1e 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -407,6 +407,7 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+       proc->user            = UsersTable_getRef(pl->usersTable, proc->st_uid);
+       proc->comm            = xStrdup(_psinfo->pr_fname);
+       proc->commLen         = strnlen(_psinfo->pr_fname,PRFNSZ);
++      sproc->dmodel         = _psinfo->pr_dmodel;
+    }
+ 
+    // End common code pass 1
+
+From 047969b88df45b3cd73728c3d3fb43a84394cc0b Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Wed, 9 Jan 2019 10:25:29 -0500
+Subject: [PATCH 20/28] Solaris: ensure that process owning username is updated
+ at every refresh
+
+---
+ solaris/SolarisProcess.h     | 1 +
+ solaris/SolarisProcessList.c | 2 +-
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/solaris/SolarisProcess.h b/solaris/SolarisProcess.h
+index 1b3492a7..f80b4353 100644
+--- a/solaris/SolarisProcess.h
++++ b/solaris/SolarisProcess.h
+@@ -41,6 +41,7 @@ typedef struct SolarisProcess_ {
+    pid_t      realpid;
+    pid_t      realppid;
+    pid_t      lwpid;
++   char       dmodel;
+ } SolarisProcess;
+ 
+ 
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index 89e29c1e..ee55d907 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -398,13 +398,13 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    proc->tty_nr             = _psinfo->pr_ttydev;
+    proc->m_resident         = _psinfo->pr_rssize/PAGE_SIZE_KB;
+    proc->m_size             = _psinfo->pr_size/PAGE_SIZE_KB;
++   proc->user               = UsersTable_getRef(pl->usersTable, proc->st_uid);
+ 
+    if (!preExisting) {
+       sproc->realpid        = _psinfo->pr_pid;
+       sproc->lwpid          = lwpid_real;
+       sproc->zoneid         = _psinfo->pr_zoneid;
+       sproc->zname          = SolarisProcessList_readZoneName(spl->kd,sproc); 
+-      proc->user            = UsersTable_getRef(pl->usersTable, proc->st_uid);
+       proc->comm            = xStrdup(_psinfo->pr_fname);
+       proc->commLen         = strnlen(_psinfo->pr_fname,PRFNSZ);
+       sproc->dmodel         = _psinfo->pr_dmodel;
+
+From ef70b981cd6f873ae6bd1f93db951dfd16f15779 Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Wed, 9 Jan 2019 13:10:52 -0500
+Subject: [PATCH 21/28] Solaris: wire up data model display
+
+---
+ solaris/SolarisProcess.c | 19 +++++++++++++++++--
+ solaris/SolarisProcess.h |  4 +++-
+ 2 files changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/solaris/SolarisProcess.c b/solaris/SolarisProcess.c
+index 16fc8524..085ff36c 100644
+--- a/solaris/SolarisProcess.c
++++ b/solaris/SolarisProcess.c
+@@ -22,6 +22,7 @@ in the source distribution for its full text.
+ #include <zone.h>
+ #include <sys/proc.h>
+ #include <libproc.h>
++#include <sys/procfs.h>
+ 
+ typedef enum SolarisProcessFields {
+    // Add platform-specific fields here, with ids >= 100
+@@ -32,7 +33,8 @@ typedef enum SolarisProcessFields {
+    POOLID = 104,
+    CONTID = 105,
+    LWPID = 106,
+-   LAST_PROCESSFIELD = 107,
++   DM = 107,
++   LAST_PROCESSFIELD = 108,
+ } SolarisProcessField;
+ 
+ 
+@@ -105,6 +107,7 @@ ProcessFieldData Process_fields[] = {
+    [POOLID] = { .name = "POOLID", .title = " POLID ", .description = "Pool ID", .flags = 0, },
+    [CONTID] = { .name = "CONTID", .title = " CNTID ", .description = "Contract ID", .flags = 0, },
+    [LWPID] = { .name = "LWPID", .title = " LWPID ", .description = "LWP ID", .flags = 0, },
++   [DM] = { .name = "DM", .title = "DM ", .description = "Data Model (32- or 64-bit)", .flags = 0, },
+    [LAST_PROCESSFIELD] = { .name = "*** report bug! ***", .title = NULL, .description = NULL, .flags = 0, },
+ };
+ 
+@@ -151,7 +154,7 @@ void SolarisProcess_writeField(Process* this, RichString* str, ProcessField fiel
+    case POOLID: xSnprintf(buffer, n, Process_pidFormat, sp->poolid); break;
+    case CONTID: xSnprintf(buffer, n, Process_pidFormat, sp->contid); break;
+    case ZONE:{
+-      xSnprintf(buffer, n, "%-*s ", ZONENAME_MAX/4, sp->zname); break;
++      xSnprintf(buffer, n, "%-*s ", ZONENAME_MAX/4, sp->zname);
+       if (buffer[ZONENAME_MAX/4] != '\0') {
+          buffer[ZONENAME_MAX/4] = ' ';
+          buffer[(ZONENAME_MAX/4)+1] = '\0';
+@@ -161,6 +164,16 @@ void SolarisProcess_writeField(Process* this, RichString* str, ProcessField fiel
+    case PID: xSnprintf(buffer, n, Process_pidFormat, sp->realpid); break;
+    case PPID: xSnprintf(buffer, n, Process_pidFormat, sp->realppid); break;
+    case LWPID: xSnprintf(buffer, n, Process_pidFormat, sp->lwpid); break;
++   case DM:{
++      if (sp->dmodel == PR_MODEL_ILP32) {
++         xSnprintf(buffer, n, "32 ");
++      } else if (sp->dmodel == PR_MODEL_LP64) {
++         xSnprintf(buffer, n, "64 ");
++      } else {
++         xSnprintf(buffer, n, "?? ");
++      }
++      break;
++   }
+    default:
+       Process_writeField(this, str, field);
+       return;
+@@ -197,6 +210,8 @@ long SolarisProcess_compare(const void* v1, const void* v2) {
+       return (p1->realppid - p2->realppid);
+    case LWPID:
+       return (p1->lwpid - p2->lwpid);
++   case DM:
++      return (p1->dmodel - p2->dmodel);
+    default:
+       return Process_compare(v1, v2);
+    }
+diff --git a/solaris/SolarisProcess.h b/solaris/SolarisProcess.h
+index f80b4353..fdaa63ba 100644
+--- a/solaris/SolarisProcess.h
++++ b/solaris/SolarisProcess.h
+@@ -14,6 +14,7 @@ in the source distribution for its full text.
+ #include <zone.h>
+ #include <sys/proc.h>
+ #include <libproc.h>
++#include <sys/procfs.h>
+ 
+ typedef enum SolarisProcessFields {
+    // Add platform-specific fields here, with ids >= 100
+@@ -24,7 +25,8 @@ typedef enum SolarisProcessFields {
+    POOLID = 104,
+    CONTID = 105,
+    LWPID = 106,
+-   LAST_PROCESSFIELD = 107,
++   DM = 107,
++   LAST_PROCESSFIELD = 108,
+ } SolarisProcessField;
+ 
+ 
+
+From fea5d720120fd671cb7723dad934da024117afdf Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Wed, 9 Jan 2019 15:26:00 -0500
+Subject: [PATCH 22/28] Solaris: implement a column for process security flags
+
+---
+ solaris/SolarisProcess.c     | 34 +++++++++++++++++++++++++++++++++-
+ solaris/SolarisProcess.h     |  6 +++++-
+ solaris/SolarisProcessList.c | 18 +++++++++++++++---
+ 3 files changed, 53 insertions(+), 5 deletions(-)
+
+diff --git a/solaris/SolarisProcess.c b/solaris/SolarisProcess.c
+index 085ff36c..b1697101 100644
+--- a/solaris/SolarisProcess.c
++++ b/solaris/SolarisProcess.c
+@@ -34,7 +34,8 @@ typedef enum SolarisProcessFields {
+    CONTID = 105,
+    LWPID = 106,
+    DM = 107,
+-   LAST_PROCESSFIELD = 108,
++   PSEC = 108, 
++   LAST_PROCESSFIELD = 109,
+ } SolarisProcessField;
+ 
+ 
+@@ -52,6 +53,7 @@ typedef struct SolarisProcess_ {
+    pid_t      realppid;
+    pid_t      lwpid;
+    char       dmodel;
++   secflagset_t esecflags;
+ } SolarisProcess;
+ 
+ 
+@@ -63,6 +65,8 @@ typedef struct SolarisProcess_ {
+ #define Process_isUserlandThread(_process) (_process->pid != _process->tgid)
+ #endif
+ 
++#define PROC_SEC_UNAVAIL 0xFFFFFFFFFFFFFFFF
++
+ }*/
+ 
+ ProcessClass SolarisProcess_class = {
+@@ -108,6 +112,7 @@ ProcessFieldData Process_fields[] = {
+    [CONTID] = { .name = "CONTID", .title = " CNTID ", .description = "Contract ID", .flags = 0, },
+    [LWPID] = { .name = "LWPID", .title = " LWPID ", .description = "LWP ID", .flags = 0, },
+    [DM] = { .name = "DM", .title = "DM ", .description = "Data Model (32- or 64-bit)", .flags = 0, },
++   [PSEC] = { .name = "PSEC", .title = "PSEC ", .description = "Process Security Flags (ASLR, Forbidnullmap, Noexecstack)", .flags = 0, },
+    [LAST_PROCESSFIELD] = { .name = "*** report bug! ***", .title = NULL, .description = NULL, .flags = 0, },
+ };
+ 
+@@ -174,6 +179,31 @@ void SolarisProcess_writeField(Process* this, RichString* str, ProcessField fiel
+       }
+       break;
+    }
++   case PSEC:{
++      if (sp->esecflags == PROC_SEC_UNAVAIL) {
++         xSnprintf(buffer, n, "     ");
++      } else {
++         buffer[0] = ' ';
++         if (secflag_isset(sp->esecflags,PROC_SEC_ASLR)) {
++            buffer[1] = 'A';
++         } else {
++            buffer[1] = '-';
++         }
++         if (secflag_isset(sp->esecflags,PROC_SEC_FORBIDNULLMAP)) {
++            buffer[2] = 'F';
++         } else {
++            buffer[2] = '-';
++         }
++         if (secflag_isset(sp->esecflags,PROC_SEC_NOEXECSTACK)) {
++            buffer[3] = 'N';
++         } else {
++            buffer[3] = '-';
++         } 
++         buffer[4] = ' ';
++         buffer[5] = '\0';
++      }
++      break;
++   }
+    default:
+       Process_writeField(this, str, field);
+       return;
+@@ -212,6 +242,8 @@ long SolarisProcess_compare(const void* v1, const void* v2) {
+       return (p1->lwpid - p2->lwpid);
+    case DM:
+       return (p1->dmodel - p2->dmodel);
++   case PSEC:
++      return (p1->esecflags - p2->esecflags);
+    default:
+       return Process_compare(v1, v2);
+    }
+diff --git a/solaris/SolarisProcess.h b/solaris/SolarisProcess.h
+index fdaa63ba..06ade29e 100644
+--- a/solaris/SolarisProcess.h
++++ b/solaris/SolarisProcess.h
+@@ -26,7 +26,8 @@ typedef enum SolarisProcessFields {
+    CONTID = 105,
+    LWPID = 106,
+    DM = 107,
+-   LAST_PROCESSFIELD = 108,
++   PSEC = 108, 
++   LAST_PROCESSFIELD = 109,
+ } SolarisProcessField;
+ 
+ 
+@@ -44,6 +45,7 @@ typedef struct SolarisProcess_ {
+    pid_t      realppid;
+    pid_t      lwpid;
+    char       dmodel;
++   secflagset_t esecflags;
+ } SolarisProcess;
+ 
+ 
+@@ -55,6 +57,8 @@ typedef struct SolarisProcess_ {
+ #define Process_isUserlandThread(_process) (_process->pid != _process->tgid)
+ #endif
+ 
++#define PROC_SEC_UNAVAIL 0xFFFFFFFFFFFFFFFF
++
+ 
+ extern ProcessClass SolarisProcess_class;
+ 
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index ee55d907..1272e7cc 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -363,7 +363,8 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    // Setup process list
+    ProcessList *pl = (ProcessList*) listptr;
+    SolarisProcessList *spl = (SolarisProcessList*) listptr;
+-
++   int perr = -1;
++   int psferr = -1;
+    id_t lwpid_real = _lwpsinfo->pr_lwpid;
+    if (lwpid_real > 1023) return 0;
+    pid_t lwpid   = (_psinfo->pr_pid * 1024) + lwpid_real;
+@@ -375,7 +376,11 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    } 
+    Process *proc             = ProcessList_getProcess(pl, getpid, &preExisting, (Process_New) SolarisProcess_new);
+    SolarisProcess *sproc     = (SolarisProcess*) proc;
+-
++   struct ps_prochandle *ph  = Pgrab(_psinfo->pr_pid,PGRAB_RDONLY,&perr);
++   prsecflags_t *psf         = NULL;
++   if (!perr) {
++      psferr = Psecflags(ph,&psf);
++   } 
+    gettimeofday(&tv, NULL);
+ 
+    // Common code pass 1
+@@ -399,7 +404,12 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    proc->m_resident         = _psinfo->pr_rssize/PAGE_SIZE_KB;
+    proc->m_size             = _psinfo->pr_size/PAGE_SIZE_KB;
+    proc->user               = UsersTable_getRef(pl->usersTable, proc->st_uid);
+-
++   if (!psferr) {
++      sproc->esecflags      = psf->pr_effective;
++      Psecflags_free(psf);
++   } else {
++      sproc->esecflags      = PROC_SEC_UNAVAIL;
++   }
+    if (!preExisting) {
+       sproc->realpid        = _psinfo->pr_pid;
+       sproc->lwpid          = lwpid_real;
+@@ -410,6 +420,8 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+       sproc->dmodel         = _psinfo->pr_dmodel;
+    }
+ 
++   if (!perr) Pfree(ph);
++
+    // End common code pass 1
+ 
+    if (onMasterLWP) { // Are we on the representative LWP?
+
+From a0eddaa694ac8275741562a9a9c34745b234e68c Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Wed, 9 Jan 2019 15:32:43 -0500
+Subject: [PATCH 23/28] Revert "Solaris: implement a column for process
+ security flags"
+
+Unfortunately, Oracle Solaris and illumos implemented process security differently, and this change only works on illumos.  Moving to a separate branch for now.
+
+This reverts commit 2f430dec24cc4ab0fecf78a1967392b6e8e97e33.
+---
+ solaris/SolarisProcess.c     | 34 +---------------------------------
+ solaris/SolarisProcess.h     |  6 +-----
+ solaris/SolarisProcessList.c | 18 +++---------------
+ 3 files changed, 5 insertions(+), 53 deletions(-)
+
+diff --git a/solaris/SolarisProcess.c b/solaris/SolarisProcess.c
+index b1697101..085ff36c 100644
+--- a/solaris/SolarisProcess.c
++++ b/solaris/SolarisProcess.c
+@@ -34,8 +34,7 @@ typedef enum SolarisProcessFields {
+    CONTID = 105,
+    LWPID = 106,
+    DM = 107,
+-   PSEC = 108, 
+-   LAST_PROCESSFIELD = 109,
++   LAST_PROCESSFIELD = 108,
+ } SolarisProcessField;
+ 
+ 
+@@ -53,7 +52,6 @@ typedef struct SolarisProcess_ {
+    pid_t      realppid;
+    pid_t      lwpid;
+    char       dmodel;
+-   secflagset_t esecflags;
+ } SolarisProcess;
+ 
+ 
+@@ -65,8 +63,6 @@ typedef struct SolarisProcess_ {
+ #define Process_isUserlandThread(_process) (_process->pid != _process->tgid)
+ #endif
+ 
+-#define PROC_SEC_UNAVAIL 0xFFFFFFFFFFFFFFFF
+-
+ }*/
+ 
+ ProcessClass SolarisProcess_class = {
+@@ -112,7 +108,6 @@ ProcessFieldData Process_fields[] = {
+    [CONTID] = { .name = "CONTID", .title = " CNTID ", .description = "Contract ID", .flags = 0, },
+    [LWPID] = { .name = "LWPID", .title = " LWPID ", .description = "LWP ID", .flags = 0, },
+    [DM] = { .name = "DM", .title = "DM ", .description = "Data Model (32- or 64-bit)", .flags = 0, },
+-   [PSEC] = { .name = "PSEC", .title = "PSEC ", .description = "Process Security Flags (ASLR, Forbidnullmap, Noexecstack)", .flags = 0, },
+    [LAST_PROCESSFIELD] = { .name = "*** report bug! ***", .title = NULL, .description = NULL, .flags = 0, },
+ };
+ 
+@@ -179,31 +174,6 @@ void SolarisProcess_writeField(Process* this, RichString* str, ProcessField fiel
+       }
+       break;
+    }
+-   case PSEC:{
+-      if (sp->esecflags == PROC_SEC_UNAVAIL) {
+-         xSnprintf(buffer, n, "     ");
+-      } else {
+-         buffer[0] = ' ';
+-         if (secflag_isset(sp->esecflags,PROC_SEC_ASLR)) {
+-            buffer[1] = 'A';
+-         } else {
+-            buffer[1] = '-';
+-         }
+-         if (secflag_isset(sp->esecflags,PROC_SEC_FORBIDNULLMAP)) {
+-            buffer[2] = 'F';
+-         } else {
+-            buffer[2] = '-';
+-         }
+-         if (secflag_isset(sp->esecflags,PROC_SEC_NOEXECSTACK)) {
+-            buffer[3] = 'N';
+-         } else {
+-            buffer[3] = '-';
+-         } 
+-         buffer[4] = ' ';
+-         buffer[5] = '\0';
+-      }
+-      break;
+-   }
+    default:
+       Process_writeField(this, str, field);
+       return;
+@@ -242,8 +212,6 @@ long SolarisProcess_compare(const void* v1, const void* v2) {
+       return (p1->lwpid - p2->lwpid);
+    case DM:
+       return (p1->dmodel - p2->dmodel);
+-   case PSEC:
+-      return (p1->esecflags - p2->esecflags);
+    default:
+       return Process_compare(v1, v2);
+    }
+diff --git a/solaris/SolarisProcess.h b/solaris/SolarisProcess.h
+index 06ade29e..fdaa63ba 100644
+--- a/solaris/SolarisProcess.h
++++ b/solaris/SolarisProcess.h
+@@ -26,8 +26,7 @@ typedef enum SolarisProcessFields {
+    CONTID = 105,
+    LWPID = 106,
+    DM = 107,
+-   PSEC = 108, 
+-   LAST_PROCESSFIELD = 109,
++   LAST_PROCESSFIELD = 108,
+ } SolarisProcessField;
+ 
+ 
+@@ -45,7 +44,6 @@ typedef struct SolarisProcess_ {
+    pid_t      realppid;
+    pid_t      lwpid;
+    char       dmodel;
+-   secflagset_t esecflags;
+ } SolarisProcess;
+ 
+ 
+@@ -57,8 +55,6 @@ typedef struct SolarisProcess_ {
+ #define Process_isUserlandThread(_process) (_process->pid != _process->tgid)
+ #endif
+ 
+-#define PROC_SEC_UNAVAIL 0xFFFFFFFFFFFFFFFF
+-
+ 
+ extern ProcessClass SolarisProcess_class;
+ 
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index 1272e7cc..ee55d907 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -363,8 +363,7 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    // Setup process list
+    ProcessList *pl = (ProcessList*) listptr;
+    SolarisProcessList *spl = (SolarisProcessList*) listptr;
+-   int perr = -1;
+-   int psferr = -1;
++
+    id_t lwpid_real = _lwpsinfo->pr_lwpid;
+    if (lwpid_real > 1023) return 0;
+    pid_t lwpid   = (_psinfo->pr_pid * 1024) + lwpid_real;
+@@ -376,11 +375,7 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    } 
+    Process *proc             = ProcessList_getProcess(pl, getpid, &preExisting, (Process_New) SolarisProcess_new);
+    SolarisProcess *sproc     = (SolarisProcess*) proc;
+-   struct ps_prochandle *ph  = Pgrab(_psinfo->pr_pid,PGRAB_RDONLY,&perr);
+-   prsecflags_t *psf         = NULL;
+-   if (!perr) {
+-      psferr = Psecflags(ph,&psf);
+-   } 
++
+    gettimeofday(&tv, NULL);
+ 
+    // Common code pass 1
+@@ -404,12 +399,7 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    proc->m_resident         = _psinfo->pr_rssize/PAGE_SIZE_KB;
+    proc->m_size             = _psinfo->pr_size/PAGE_SIZE_KB;
+    proc->user               = UsersTable_getRef(pl->usersTable, proc->st_uid);
+-   if (!psferr) {
+-      sproc->esecflags      = psf->pr_effective;
+-      Psecflags_free(psf);
+-   } else {
+-      sproc->esecflags      = PROC_SEC_UNAVAIL;
+-   }
++
+    if (!preExisting) {
+       sproc->realpid        = _psinfo->pr_pid;
+       sproc->lwpid          = lwpid_real;
+@@ -420,8 +410,6 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+       sproc->dmodel         = _psinfo->pr_dmodel;
+    }
+ 
+-   if (!perr) Pfree(ph);
+-
+    // End common code pass 1
+ 
+    if (onMasterLWP) { // Are we on the representative LWP?
+
+From 2b94cb6d97051197fc398af90f59f7083ba94cee Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Wed, 9 Jan 2019 15:56:27 -0500
+Subject: [PATCH 24/28] Re-do "Solaris: implement a column for process security
+ flags"
+
+This reverts commit 2b2c1c4ac6ba90c12facc2e45e7dd791605e3af7.
+---
+ solaris/SolarisProcess.c     | 34 +++++++++++++++++++++++++++++++++-
+ solaris/SolarisProcess.h     |  6 +++++-
+ solaris/SolarisProcessList.c | 18 +++++++++++++++---
+ 3 files changed, 53 insertions(+), 5 deletions(-)
+
+diff --git a/solaris/SolarisProcess.c b/solaris/SolarisProcess.c
+index 085ff36c..b1697101 100644
+--- a/solaris/SolarisProcess.c
++++ b/solaris/SolarisProcess.c
+@@ -34,7 +34,8 @@ typedef enum SolarisProcessFields {
+    CONTID = 105,
+    LWPID = 106,
+    DM = 107,
+-   LAST_PROCESSFIELD = 108,
++   PSEC = 108, 
++   LAST_PROCESSFIELD = 109,
+ } SolarisProcessField;
+ 
+ 
+@@ -52,6 +53,7 @@ typedef struct SolarisProcess_ {
+    pid_t      realppid;
+    pid_t      lwpid;
+    char       dmodel;
++   secflagset_t esecflags;
+ } SolarisProcess;
+ 
+ 
+@@ -63,6 +65,8 @@ typedef struct SolarisProcess_ {
+ #define Process_isUserlandThread(_process) (_process->pid != _process->tgid)
+ #endif
+ 
++#define PROC_SEC_UNAVAIL 0xFFFFFFFFFFFFFFFF
++
+ }*/
+ 
+ ProcessClass SolarisProcess_class = {
+@@ -108,6 +112,7 @@ ProcessFieldData Process_fields[] = {
+    [CONTID] = { .name = "CONTID", .title = " CNTID ", .description = "Contract ID", .flags = 0, },
+    [LWPID] = { .name = "LWPID", .title = " LWPID ", .description = "LWP ID", .flags = 0, },
+    [DM] = { .name = "DM", .title = "DM ", .description = "Data Model (32- or 64-bit)", .flags = 0, },
++   [PSEC] = { .name = "PSEC", .title = "PSEC ", .description = "Process Security Flags (ASLR, Forbidnullmap, Noexecstack)", .flags = 0, },
+    [LAST_PROCESSFIELD] = { .name = "*** report bug! ***", .title = NULL, .description = NULL, .flags = 0, },
+ };
+ 
+@@ -174,6 +179,31 @@ void SolarisProcess_writeField(Process* this, RichString* str, ProcessField fiel
+       }
+       break;
+    }
++   case PSEC:{
++      if (sp->esecflags == PROC_SEC_UNAVAIL) {
++         xSnprintf(buffer, n, "     ");
++      } else {
++         buffer[0] = ' ';
++         if (secflag_isset(sp->esecflags,PROC_SEC_ASLR)) {
++            buffer[1] = 'A';
++         } else {
++            buffer[1] = '-';
++         }
++         if (secflag_isset(sp->esecflags,PROC_SEC_FORBIDNULLMAP)) {
++            buffer[2] = 'F';
++         } else {
++            buffer[2] = '-';
++         }
++         if (secflag_isset(sp->esecflags,PROC_SEC_NOEXECSTACK)) {
++            buffer[3] = 'N';
++         } else {
++            buffer[3] = '-';
++         } 
++         buffer[4] = ' ';
++         buffer[5] = '\0';
++      }
++      break;
++   }
+    default:
+       Process_writeField(this, str, field);
+       return;
+@@ -212,6 +242,8 @@ long SolarisProcess_compare(const void* v1, const void* v2) {
+       return (p1->lwpid - p2->lwpid);
+    case DM:
+       return (p1->dmodel - p2->dmodel);
++   case PSEC:
++      return (p1->esecflags - p2->esecflags);
+    default:
+       return Process_compare(v1, v2);
+    }
+diff --git a/solaris/SolarisProcess.h b/solaris/SolarisProcess.h
+index fdaa63ba..06ade29e 100644
+--- a/solaris/SolarisProcess.h
++++ b/solaris/SolarisProcess.h
+@@ -26,7 +26,8 @@ typedef enum SolarisProcessFields {
+    CONTID = 105,
+    LWPID = 106,
+    DM = 107,
+-   LAST_PROCESSFIELD = 108,
++   PSEC = 108, 
++   LAST_PROCESSFIELD = 109,
+ } SolarisProcessField;
+ 
+ 
+@@ -44,6 +45,7 @@ typedef struct SolarisProcess_ {
+    pid_t      realppid;
+    pid_t      lwpid;
+    char       dmodel;
++   secflagset_t esecflags;
+ } SolarisProcess;
+ 
+ 
+@@ -55,6 +57,8 @@ typedef struct SolarisProcess_ {
+ #define Process_isUserlandThread(_process) (_process->pid != _process->tgid)
+ #endif
+ 
++#define PROC_SEC_UNAVAIL 0xFFFFFFFFFFFFFFFF
++
+ 
+ extern ProcessClass SolarisProcess_class;
+ 
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index ee55d907..1272e7cc 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -363,7 +363,8 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    // Setup process list
+    ProcessList *pl = (ProcessList*) listptr;
+    SolarisProcessList *spl = (SolarisProcessList*) listptr;
+-
++   int perr = -1;
++   int psferr = -1;
+    id_t lwpid_real = _lwpsinfo->pr_lwpid;
+    if (lwpid_real > 1023) return 0;
+    pid_t lwpid   = (_psinfo->pr_pid * 1024) + lwpid_real;
+@@ -375,7 +376,11 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    } 
+    Process *proc             = ProcessList_getProcess(pl, getpid, &preExisting, (Process_New) SolarisProcess_new);
+    SolarisProcess *sproc     = (SolarisProcess*) proc;
+-
++   struct ps_prochandle *ph  = Pgrab(_psinfo->pr_pid,PGRAB_RDONLY,&perr);
++   prsecflags_t *psf         = NULL;
++   if (!perr) {
++      psferr = Psecflags(ph,&psf);
++   } 
+    gettimeofday(&tv, NULL);
+ 
+    // Common code pass 1
+@@ -399,7 +404,12 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    proc->m_resident         = _psinfo->pr_rssize/PAGE_SIZE_KB;
+    proc->m_size             = _psinfo->pr_size/PAGE_SIZE_KB;
+    proc->user               = UsersTable_getRef(pl->usersTable, proc->st_uid);
+-
++   if (!psferr) {
++      sproc->esecflags      = psf->pr_effective;
++      Psecflags_free(psf);
++   } else {
++      sproc->esecflags      = PROC_SEC_UNAVAIL;
++   }
+    if (!preExisting) {
+       sproc->realpid        = _psinfo->pr_pid;
+       sproc->lwpid          = lwpid_real;
+@@ -410,6 +420,8 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+       sproc->dmodel         = _psinfo->pr_dmodel;
+    }
+ 
++   if (!perr) Pfree(ph);
++
+    // End common code pass 1
+ 
+    if (onMasterLWP) { // Are we on the representative LWP?
+
+From a1a66ce8776e6011a9250ad10d00b052dce6ed7e Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Wed, 9 Jan 2019 15:57:34 -0500
+Subject: [PATCH 25/28] Solaris: use ifdefs to no-op process security flags if
+ they are unavailable on the compiling implementation
+
+---
+ solaris/SolarisProcess.c     | 10 ++++++++++
+ solaris/SolarisProcess.h     |  2 ++
+ solaris/SolarisProcessList.c |  4 ++++
+ 3 files changed, 16 insertions(+)
+
+diff --git a/solaris/SolarisProcess.c b/solaris/SolarisProcess.c
+index b1697101..8e0c90b4 100644
+--- a/solaris/SolarisProcess.c
++++ b/solaris/SolarisProcess.c
+@@ -53,7 +53,9 @@ typedef struct SolarisProcess_ {
+    pid_t      realppid;
+    pid_t      lwpid;
+    char       dmodel;
++#ifdef PRSECFLAGS_VERSION_1
+    secflagset_t esecflags;
++#endif
+ } SolarisProcess;
+ 
+ 
+@@ -180,8 +182,11 @@ void SolarisProcess_writeField(Process* this, RichString* str, ProcessField fiel
+       break;
+    }
+    case PSEC:{
++#ifdef PRSECFLAGS_VERSION_1
+       if (sp->esecflags == PROC_SEC_UNAVAIL) {
++#endif
+          xSnprintf(buffer, n, "     ");
++#ifdef PRSECFLAGS_VERSION_1
+       } else {
+          buffer[0] = ' ';
+          if (secflag_isset(sp->esecflags,PROC_SEC_ASLR)) {
+@@ -202,6 +207,7 @@ void SolarisProcess_writeField(Process* this, RichString* str, ProcessField fiel
+          buffer[4] = ' ';
+          buffer[5] = '\0';
+       }
++#endif
+       break;
+    }
+    default:
+@@ -243,7 +249,11 @@ long SolarisProcess_compare(const void* v1, const void* v2) {
+    case DM:
+       return (p1->dmodel - p2->dmodel);
+    case PSEC:
++#ifdef PRSECFLAGS_VERSION_1
+       return (p1->esecflags - p2->esecflags);
++#else
++      return 0;
++#endif
+    default:
+       return Process_compare(v1, v2);
+    }
+diff --git a/solaris/SolarisProcess.h b/solaris/SolarisProcess.h
+index 06ade29e..c0c0a802 100644
+--- a/solaris/SolarisProcess.h
++++ b/solaris/SolarisProcess.h
+@@ -45,7 +45,9 @@ typedef struct SolarisProcess_ {
+    pid_t      realppid;
+    pid_t      lwpid;
+    char       dmodel;
++#ifdef PRSECFLAGS_VERSION_1
+    secflagset_t esecflags;
++#endif
+ } SolarisProcess;
+ 
+ 
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index 1272e7cc..ac63a0a2 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -377,10 +377,12 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    Process *proc             = ProcessList_getProcess(pl, getpid, &preExisting, (Process_New) SolarisProcess_new);
+    SolarisProcess *sproc     = (SolarisProcess*) proc;
+    struct ps_prochandle *ph  = Pgrab(_psinfo->pr_pid,PGRAB_RDONLY,&perr);
++#ifdef PRSECFLAGS_VERSION_1
+    prsecflags_t *psf         = NULL;
+    if (!perr) {
+       psferr = Psecflags(ph,&psf);
+    } 
++#endif
+    gettimeofday(&tv, NULL);
+ 
+    // Common code pass 1
+@@ -404,12 +406,14 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    proc->m_resident         = _psinfo->pr_rssize/PAGE_SIZE_KB;
+    proc->m_size             = _psinfo->pr_size/PAGE_SIZE_KB;
+    proc->user               = UsersTable_getRef(pl->usersTable, proc->st_uid);
++#ifdef PRSECFLAGS_VERSION_1
+    if (!psferr) {
+       sproc->esecflags      = psf->pr_effective;
+       Psecflags_free(psf);
+    } else {
+       sproc->esecflags      = PROC_SEC_UNAVAIL;
+    }
++#endif
+    if (!preExisting) {
+       sproc->realpid        = _psinfo->pr_pid;
+       sproc->lwpid          = lwpid_real;
+
+From a4489f4551c07adbf9adb61e96a78fd9315115cb Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Thu, 10 Jan 2019 09:16:35 -0500
+Subject: [PATCH 26/28] Solaris: Clean up after recent changes, add comments,
+ and bump copyrights
+
+---
+ solaris/Platform.c           |  2 +-
+ solaris/Platform.h           |  2 +-
+ solaris/SolarisMemoryMeter.c |  2 +-
+ solaris/SolarisProcess.c     |  6 +--
+ solaris/SolarisProcess.h     |  4 +-
+ solaris/SolarisProcessList.c | 78 ++++++++++++++++++++++--------------
+ solaris/SolarisProcessList.h |  4 +-
+ 7 files changed, 59 insertions(+), 39 deletions(-)
+
+diff --git a/solaris/Platform.c b/solaris/Platform.c
+index 5ad7e562..69db1939 100644
+--- a/solaris/Platform.c
++++ b/solaris/Platform.c
+@@ -2,7 +2,7 @@
+ htop - solaris/Platform.c
+ (C) 2014 Hisham H. Muhammad
+ (C) 2015 David C. Hunt
+-(C) 2017,2018 Guy M. Broome
++(C) 2017-2019 Guy M. Broome
+ Released under the GNU GPL, see the COPYING file
+ in the source distribution for its full text.
+ */
+diff --git a/solaris/Platform.h b/solaris/Platform.h
+index f961b913..899677b2 100644
+--- a/solaris/Platform.h
++++ b/solaris/Platform.h
+@@ -6,7 +6,7 @@
+ htop - solaris/Platform.h
+ (C) 2014 Hisham H. Muhammad
+ (C) 2015 David C. Hunt
+-(C) 2017,2018 Guy M. Broome
++(C) 2017-2019 Guy M. Broome
+ Released under the GNU GPL, see the COPYING file
+ in the source distribution for its full text.
+ */
+diff --git a/solaris/SolarisMemoryMeter.c b/solaris/SolarisMemoryMeter.c
+index ca4ac521..01ca7642 100644
+--- a/solaris/SolarisMemoryMeter.c
++++ b/solaris/SolarisMemoryMeter.c
+@@ -60,7 +60,7 @@ MeterClass SolarisMemoryMeter_class = {
+       .delete = Meter_delete,
+       .display = SolarisMemoryMeter_display,
+    },
+-   .updateValues = SolarisMemoryMeter_updateValues, 
++   .updateValues = SolarisMemoryMeter_updateValues,
+    .defaultMode = BAR_METERMODE,
+    .maxItems = 3,
+    .total = 100.0,
+diff --git a/solaris/SolarisProcess.c b/solaris/SolarisProcess.c
+index 8e0c90b4..699dea6a 100644
+--- a/solaris/SolarisProcess.c
++++ b/solaris/SolarisProcess.c
+@@ -1,7 +1,7 @@
+ /*
+ htop - SolarisProcess.c
+ (C) 2015 Hisham H. Muhammad
+-(C) 2017,2018 Guy M. Broome
++(C) 2017-2019 Guy M. Broome
+ Released under the GNU GPL, see the COPYING file
+ in the source distribution for its full text.
+ */
+@@ -34,7 +34,7 @@ typedef enum SolarisProcessFields {
+    CONTID = 105,
+    LWPID = 106,
+    DM = 107,
+-   PSEC = 108, 
++   PSEC = 108,
+    LAST_PROCESSFIELD = 109,
+ } SolarisProcessField;
+ 
+@@ -203,7 +203,7 @@ void SolarisProcess_writeField(Process* this, RichString* str, ProcessField fiel
+             buffer[3] = 'N';
+          } else {
+             buffer[3] = '-';
+-         } 
++         }
+          buffer[4] = ' ';
+          buffer[5] = '\0';
+       }
+diff --git a/solaris/SolarisProcess.h b/solaris/SolarisProcess.h
+index c0c0a802..d3abaa2c 100644
+--- a/solaris/SolarisProcess.h
++++ b/solaris/SolarisProcess.h
+@@ -5,7 +5,7 @@
+ /*
+ htop - SolarisProcess.h
+ (C) 2015 Hisham H. Muhammad
+-(C) 2017,2018 Guy M. Broome
++(C) 2017-2019 Guy M. Broome
+ Released under the GNU GPL, see the COPYING file
+ in the source distribution for its full text.
+ */
+@@ -26,7 +26,7 @@ typedef enum SolarisProcessFields {
+    CONTID = 105,
+    LWPID = 106,
+    DM = 107,
+-   PSEC = 108, 
++   PSEC = 108,
+    LAST_PROCESSFIELD = 109,
+ } SolarisProcessField;
+ 
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index ac63a0a2..75106e24 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -1,7 +1,7 @@
+ /*
+ htop - SolarisProcessList.c
+ (C) 2014 Hisham H. Muhammad
+-(C) 2017,2018 Guy M. Broome
++(C) 2017-2019 Guy M. Broome
+ Released under the GNU GPL, see the COPYING file
+ in the source distribution for its full text.
+ */
+@@ -69,6 +69,8 @@ typedef struct SolarisProcessList_ {
+ }*/
+ 
+ // Used in case htop is 32-bit but we're on a 64-bit kernel
++// in which case it is needed to correct case zone memory
++// usage info
+ typedef struct htop_vmusage64 {
+ 	id_t vmu_zoneid;
+ 	uint_t vmu_type;
+@@ -83,7 +85,7 @@ typedef struct htop_vmusage64 {
+ } htop_vmusage64_t;
+ 
+ static uint_t get_bitness(const char *isa) {
+-   if (strcmp(isa, "sparc") == 0 || strcmp(isa, "i386") == 0) return (32); 
++   if (strcmp(isa, "sparc") == 0 || strcmp(isa, "i386") == 0) return (32);
+    if (strcmp(isa, "sparcv9") == 0 || strcmp(isa, "amd64") == 0) return (64);
+    return (0);
+ }
+@@ -128,11 +130,11 @@ ProcessList* ProcessList_new(UsersTable* usersTable, Hashtable* pidWhiteList, ui
+ 
+    // Various info on the architecture of the kernel and the current binary
+    // which is needed to correctly get zone memory usage and limit info
+-   if (sysinfo(SI_ARCHITECTURE_K,spl->karch,8) == -1) {   
++   if (sysinfo(SI_ARCHITECTURE_K,spl->karch,8) == -1) {
+       fprintf(stderr, "\nUnable to determine kernel architecture.\n");
+       abort();
+    }
+-    
++
+    if ((spl->kbitness = get_bitness(spl->karch)) == 0) {
+       fprintf(stderr, "\nUnable to determine kernel bitness.\n");
+       abort();
+@@ -283,7 +285,7 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+ 
+             if ( spl->kbitness == spl->ebitness ) {
+                // htop is kernel-native bitness, 32 or 64
+-               getvmusage(VMUSAGE_ZONE, 0, vmu_vals, &nvmu_vals); 
++               getvmusage(VMUSAGE_ZONE, 0, vmu_vals, &nvmu_vals);
+                pl->usedMem  = vmu_vals[0].vmu_rss_all / 1024; // Returned in bytes, should be KiB for htop
+             } else if ( spl->kbitness == 64 ) {
+                // htop is not kernel native bitness, e.g. 32-bit htop with a 64-bit kernel
+@@ -295,10 +297,10 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+                pl->usedMem  = 0;
+             }
+ 
+-            ret = zone_getattr(spl->this_zone,ZONE_ATTR_PHYS_MCAP,&zramcap,sizeof(zramcap)); 
++            ret = zone_getattr(spl->this_zone,ZONE_ATTR_PHYS_MCAP,&zramcap,sizeof(zramcap));
+             if ( ret < 0 ) zramcap = 0;
+ 
+-            spl->zmaxmem = zramcap / 1024;               
++            spl->zmaxmem = zramcap / 1024;
+             if ( real_sys_used > spl->zmaxmem ) {
+                spl->sysusedmem = real_sys_used - spl->zmaxmem;
+             } else {
+@@ -309,8 +311,8 @@ static inline void SolarisProcessList_scanMemoryInfo(ProcessList* pl) {
+             free(vmu_vals64);
+          }
+       }
+-   }  
+- 
++   }
++
+    // Part 2 - swap
+    if ( (nswap = swapctl(SC_GETNSWP, NULL)) > 0) {
+       if ( (sl = xMalloc((nswap * sizeof(swapent_t)) + sizeof(int))) != NULL) {
+@@ -355,37 +357,52 @@ void ProcessList_delete(ProcessList* pl) {
+  */ 
+ 
+ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *listptr) {
++   ProcessList *pl = (ProcessList*) listptr;
++   SolarisProcessList *spl = (SolarisProcessList*) listptr;
+    struct timeval tv;
+    struct tm date;
+    bool preExisting;
+    pid_t getpid;
+-
+-   // Setup process list
+-   ProcessList *pl = (ProcessList*) listptr;
+-   SolarisProcessList *spl = (SolarisProcessList*) listptr;
+    int perr = -1;
+    int psferr = -1;
++
++   // Setup for using pseudo-PIDs in the htop process table while
++   // displaying the real PIDs in user output, since LWPs don't have
++   // unique PIDs on Solaris or illumos
++   // NOTE: LWPIDs greater than 1023 on a given process will not be
++   //   listed by htop, due to size limits of the pid_t field.  I
++   //   don't currently see any way around this.  Suggestions welcome.
+    id_t lwpid_real = _lwpsinfo->pr_lwpid;
+    if (lwpid_real > 1023) return 0;
+    pid_t lwpid   = (_psinfo->pr_pid * 1024) + lwpid_real;
+    bool onMasterLWP = (_lwpsinfo->pr_lwpid == _psinfo->pr_lwp.pr_lwpid);
+    if (onMasterLWP) {
++      // Left-shifting the top level PID, while subordinate
++      // LWPs have that base plus the LWPID as their "htop PID."
++      // This gives us unique PIDs per-LWP for the htop PID table
++      // _with correct sorting_ at the cost of the 1023 LWP limit.
+       getpid = _psinfo->pr_pid * 1024;
+    } else {
+       getpid = lwpid;
+    } 
++
++   // Can't do this until we have done the pseudo-PID setup above
+    Process *proc             = ProcessList_getProcess(pl, getpid, &preExisting, (Process_New) SolarisProcess_new);
+    SolarisProcess *sproc     = (SolarisProcess*) proc;
+-   struct ps_prochandle *ph  = Pgrab(_psinfo->pr_pid,PGRAB_RDONLY,&perr);
++
++   // Grab a read-only process handle.  Only used for getting
++   // process security flags at the moment, and that only works
++   // on illumos.
+ #ifdef PRSECFLAGS_VERSION_1
++   struct ps_prochandle *ph  = Pgrab(_psinfo->pr_pid,PGRAB_RDONLY,&perr);
+    prsecflags_t *psf         = NULL;
+    if (!perr) {
+       psferr = Psecflags(ph,&psf);
+-   } 
++   }
+ #endif
+    gettimeofday(&tv, NULL);
+ 
+-   // Common code pass 1
++   // For new and existing entries in the htop proc table for all LWPs
+    proc->show               = false;
+    sproc->taskid            = _psinfo->pr_taskid;
+    sproc->projid            = _psinfo->pr_projid;
+@@ -402,18 +419,22 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    proc->st_uid             = _psinfo->pr_euid;
+    proc->pgrp               = _psinfo->pr_pgid;
+    proc->nlwp               = _psinfo->pr_nlwp;
++   // tty_nr does not currently work correctly, as Solaris and illumos have larger
++   // dev_t (ulong_t) than the portable htop code allows (unsigned int).
+    proc->tty_nr             = _psinfo->pr_ttydev;
+    proc->m_resident         = _psinfo->pr_rssize/PAGE_SIZE_KB;
+    proc->m_size             = _psinfo->pr_size/PAGE_SIZE_KB;
+    proc->user               = UsersTable_getRef(pl->usersTable, proc->st_uid);
+-#ifdef PRSECFLAGS_VERSION_1
++#ifdef PRSECFLAGS_VERSION_1 // illumos only
+    if (!psferr) {
+       sproc->esecflags      = psf->pr_effective;
+       Psecflags_free(psf);
+    } else {
+       sproc->esecflags      = PROC_SEC_UNAVAIL;
+    }
++   if (!perr) Pfree(ph);
+ #endif
++   // For new htop proc table entries only, for all LWPs
+    if (!preExisting) {
+       sproc->realpid        = _psinfo->pr_pid;
+       sproc->lwpid          = lwpid_real;
+@@ -424,18 +445,16 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+       sproc->dmodel         = _psinfo->pr_dmodel;
+    }
+ 
+-   if (!perr) Pfree(ph);
+-
+-   // End common code pass 1
+-
+-   if (onMasterLWP) { // Are we on the representative LWP?
++   // For new and existing entries in the htop proc table, but only for rep. LWP 
++   if (onMasterLWP) {
+       proc->ppid            = (_psinfo->pr_ppid * 1024);
+       proc->tgid            = (_psinfo->pr_ppid * 1024);
+       sproc->realppid       = _psinfo->pr_ppid;
+       // See note above (in common section) about this BINARY FRACTION
+       proc->percent_cpu     = ((uint16_t)_psinfo->pr_pctcpu/(double)32768)*(double)100.0;
+       proc->time            = (_psinfo->pr_time.tv_sec * 100) + (_psinfo->pr_time.tv_nsec / 10000000);
+-      if(!preExisting) { // Tasks done only for NEW processes
++      // For existing htop proc table entries, and only for rep. LWP
++      if(!preExisting) {
+          sproc->is_lwp = false;
+          proc->starttime_ctime = _psinfo->pr_start.tv_sec;
+       }
+@@ -455,10 +474,12 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+          }
+       }
+       proc->show = !(pl->settings->hideKernelThreads && sproc->kernel);
+-   } else { // We are not in the master LWP, so jump to the LWP handling code
++   } else {
++   // For new and existing entries in the htop proc table, but only for non-rep. LWPs
+       proc->percent_cpu        = ((uint16_t)_lwpsinfo->pr_pctcpu/(double)32768)*(double)100.0;
+       proc->time               = (_lwpsinfo->pr_time.tv_sec * 100) + (_lwpsinfo->pr_time.tv_nsec / 10000000);
+-      if (!preExisting) { // Tasks done only for NEW LWPs
++      // For existing proc table entries, but only for non-rep. LWPs
++      if (!preExisting) {
+          sproc->is_lwp         = true; 
+          proc->basenameOffset  = -1;
+          proc->ppid            = _psinfo->pr_pid * 1024;
+@@ -470,10 +491,9 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+       // Top-level process only gets this for the representative LWP
+       if (sproc->kernel  && !pl->settings->hideKernelThreads)   proc->show = true;
+       if (!sproc->kernel && !pl->settings->hideUserlandThreads) proc->show = true;
+-   } // Top-level LWP or subordinate LWP
+-
+-   // Common code pass 2
++   }
+ 
++   // For new entries only, for all LWPs
+    if (!preExisting) {
+       if ((sproc->realppid <= 0) && !(sproc->realpid <= 1)) {
+          sproc->kernel = true;
+@@ -486,8 +506,6 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    }
+    proc->updated = true;
+ 
+-   // End common code pass 2
+-
+    return 0;
+ }
+ 
+diff --git a/solaris/SolarisProcessList.h b/solaris/SolarisProcessList.h
+index 715884ee..3352aefa 100644
+--- a/solaris/SolarisProcessList.h
++++ b/solaris/SolarisProcessList.h
+@@ -5,7 +5,7 @@
+ /*
+ htop - SolarisProcessList.h
+ (C) 2014 Hisham H. Muhammad
+-(C) 2017,2018 Guy M. Broome
++(C) 2017-2019 Guy M. Broome
+ Released under the GNU GPL, see the COPYING file
+ in the source distribution for its full text.
+ */
+@@ -52,6 +52,8 @@ typedef struct SolarisProcessList_ {
+ 
+ 
+ // Used in case htop is 32-bit but we're on a 64-bit kernel
++// in which case it is needed to correct case zone memory
++// usage info
+ 
+ char* SolarisProcessList_readZoneName(kstat_ctl_t* kd, SolarisProcess* sproc);
+ 
+
+From a53520d53d2a9533249313557d9c5708820cd2cd Mon Sep 17 00:00:00 2001
+From: "Guy M. Broome" <gmbroome@vcu.edu>
+Date: Thu, 10 Jan 2019 09:34:59 -0500
+Subject: [PATCH 27/28] Solaris: fix TTY display with a custom column to
+ accommodate the larger dev_t
+
+---
+ solaris/SolarisProcess.c     | 16 ++++++++++++++--
+ solaris/SolarisProcess.h     |  4 +++-
+ solaris/SolarisProcessList.c |  4 +---
+ 3 files changed, 18 insertions(+), 6 deletions(-)
+
+diff --git a/solaris/SolarisProcess.c b/solaris/SolarisProcess.c
+index 699dea6a..29f87183 100644
+--- a/solaris/SolarisProcess.c
++++ b/solaris/SolarisProcess.c
+@@ -35,7 +35,8 @@ typedef enum SolarisProcessFields {
+    LWPID = 106,
+    DM = 107,
+    PSEC = 108,
+-   LAST_PROCESSFIELD = 109,
++   SOLTTY_NR = 109, 
++   LAST_PROCESSFIELD = 110,
+ } SolarisProcessField;
+ 
+ 
+@@ -53,6 +54,7 @@ typedef struct SolarisProcess_ {
+    pid_t      realppid;
+    pid_t      lwpid;
+    char       dmodel;
++   dev_t      sol_tty_nr;
+ #ifdef PRSECFLAGS_VERSION_1
+    secflagset_t esecflags;
+ #endif
+@@ -89,7 +91,7 @@ ProcessFieldData Process_fields[] = {
+    [PPID] = { .name = "PPID", .title = "   PPID ", .description = "Parent process ID", .flags = 0, },
+    [PGRP] = { .name = "PGRP", .title = "   PGRP ", .description = "Process group ID", .flags = 0, },
+    [SESSION] = { .name = "SESSION", .title = "    SID ", .description = "Process's session ID", .flags = 0, },
+-   [TTY_NR] = { .name = "TTY_NR", .title = "    TTY ", .description = "Controlling terminal", .flags = 0, },
++   [SOLTTY_NR] = { .name = "TTY_NR", .title = "      TTY ", .description = "Controlling terminal", .flags = 0, },
+    [TPGID] = { .name = "TPGID", .title = "  TPGID ", .description = "Process ID of the fg process group of the controlling terminal", .flags = 0, },
+    [MINFLT] = { .name = "MINFLT", .title = "     MINFLT ", .description = "Number of minor faults which have not required loading a memory page from disk", .flags = 0, },
+    [MAJFLT] = { .name = "MAJFLT", .title = "     MAJFLT ", .description = "Number of major faults which have required loading a memory page from disk", .flags = 0, },
+@@ -210,6 +212,14 @@ void SolarisProcess_writeField(Process* this, RichString* str, ProcessField fiel
+ #endif
+       break;
+    }
++   case SOLTTY_NR:{
++      if ((major(sp->sol_tty_nr) < 10000) && (minor(sp->sol_tty_nr) < 10000)) {
++         xSnprintf(buffer, n, "%4lu:%4lu ", major(sp->sol_tty_nr), minor(sp->sol_tty_nr));
++      } else {
++         xSnprintf(buffer, n, "          ");
++      }
++      break;
++   }
+    default:
+       Process_writeField(this, str, field);
+       return;
+@@ -254,6 +264,8 @@ long SolarisProcess_compare(const void* v1, const void* v2) {
+ #else
+       return 0;
+ #endif
++   case SOLTTY_NR:
++      return (p1->sol_tty_nr - p2->sol_tty_nr);
+    default:
+       return Process_compare(v1, v2);
+    }
+diff --git a/solaris/SolarisProcess.h b/solaris/SolarisProcess.h
+index d3abaa2c..6f1d9047 100644
+--- a/solaris/SolarisProcess.h
++++ b/solaris/SolarisProcess.h
+@@ -27,7 +27,8 @@ typedef enum SolarisProcessFields {
+    LWPID = 106,
+    DM = 107,
+    PSEC = 108,
+-   LAST_PROCESSFIELD = 109,
++   SOLTTY_NR = 109, 
++   LAST_PROCESSFIELD = 110,
+ } SolarisProcessField;
+ 
+ 
+@@ -45,6 +46,7 @@ typedef struct SolarisProcess_ {
+    pid_t      realppid;
+    pid_t      lwpid;
+    char       dmodel;
++   dev_t      sol_tty_nr;
+ #ifdef PRSECFLAGS_VERSION_1
+    secflagset_t esecflags;
+ #endif
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index 75106e24..0984f864 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -419,9 +419,7 @@ int SolarisProcessList_walkproc(psinfo_t *_psinfo, lwpsinfo_t *_lwpsinfo, void *
+    proc->st_uid             = _psinfo->pr_euid;
+    proc->pgrp               = _psinfo->pr_pgid;
+    proc->nlwp               = _psinfo->pr_nlwp;
+-   // tty_nr does not currently work correctly, as Solaris and illumos have larger
+-   // dev_t (ulong_t) than the portable htop code allows (unsigned int).
+-   proc->tty_nr             = _psinfo->pr_ttydev;
++   sproc->sol_tty_nr        = _psinfo->pr_ttydev;
+    proc->m_resident         = _psinfo->pr_rssize/PAGE_SIZE_KB;
+    proc->m_size             = _psinfo->pr_size/PAGE_SIZE_KB;
+    proc->user               = UsersTable_getRef(pl->usersTable, proc->st_uid);
+
+From fda40dcaac5b06bc511f2f302b3dc5add3fca629 Mon Sep 17 00:00:00 2001
+From: ninefathom <thrirhrafnir@gmail.com>
+Date: Fri, 11 Jan 2019 07:27:57 -0500
+Subject: [PATCH 28/28] Solaris: typo in comment for struct
+
+---
+ solaris/SolarisProcessList.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/solaris/SolarisProcessList.c b/solaris/SolarisProcessList.c
+index 0984f864..f1d3db08 100644
+--- a/solaris/SolarisProcessList.c
++++ b/solaris/SolarisProcessList.c
+@@ -69,7 +69,7 @@ typedef struct SolarisProcessList_ {
+ }*/
+ 
+ // Used in case htop is 32-bit but we're on a 64-bit kernel
+-// in which case it is needed to correct case zone memory
++// in which case it is needed to correctly cast zone memory
+ // usage info
+ typedef struct htop_vmusage64 {
+ 	id_t vmu_zoneid;
+--- htop-2.2.0/Action.c	2019-05-02 07:43:40.671412843 +0000
++++ htop-2.2.0/Action.c.new	2019-05-02 07:44:29.612703695 +0000
+@@ -456,7 +456,7 @@ static Htop_Reaction actionHelp(State* s
+    mvaddstr(0, 0, "htop " VERSION " - " COPYRIGHT);
+    mvaddstr(1, 0, "Released under the GNU GPL. See 'man' page for more info.");
+ 
+-   attrset(CRT_colors[DEFAULT_COLOR]);
++   attrset(CRT_colors[COLOR_DEFAULT_COLOR]);
+    mvaddstr(3, 0, "CPU usage bar: ");
+    #define addattrstr(a,s) attrset(a);addstr(s)
+    addattrstr(CRT_colors[COLOR_BAR_BORDER], "[");
