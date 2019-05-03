@@ -10,70 +10,101 @@
 #
 
 #
+# Copyright (c) 2015, 2019, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2017 Alexander Pyhalov
-# Copyright 2018 Michal Nowak
+# Copyright 2019 Michal Nowak
 #
+
+PREFERRED_BITS=		64
 
 include ../../../make-rules/shared-macros.mk
 
-COMPONENT_NAME= 	thunderbird
-COMPONENT_VERSION= 	52.9.1
+COMPONENT_NAME=		thunderbird
+COMPONENT_VERSION=	60.6.1
+COMPONENT_PROJECT_URL=	https://www.thunderbird.net/
 COMPONENT_SUMMARY= 	Mozilla Thunderbird Email/Newsgroup Client
 COMPONENT_SRC= 		$(COMPONENT_NAME)-$(COMPONENT_VERSION)
 COMPONENT_ARCHIVE= 	$(COMPONENT_SRC).source.tar.xz
 COMPONENT_ARCHIVE_HASH= \
-  sha256:286fa71504e7184f3a41bcbdebf591bebe8e04dccbad1c93a47c6e72a7125c4d
-COMPONENT_ARCHIVE_URL= \
-  https://ftp.mozilla.org/pub/thunderbird/releases/$(COMPONENT_VERSION)/source/$(COMPONENT_ARCHIVE)
-COMPONENT_PROJECT_URL = http://www.mozilla.com/en-US/thunderbird/
+    sha256:17aef9232a76bdc812422883c02b01b4ecb7633c3ee9870da5e4ec0e20ba5f67
+ifndef CANDIDATE_BUILD
+MOZILLA_FTP = 		http://ftp.mozilla.org/pub/$(COMPONENT_NAME)/releases/$(COMPONENT_VERSION)
+else
+MOZILLA_FTP = 		http://ftp.mozilla.org/pub/$(COMPONENT_NAME)/candidates/$(COMPONENT_VERSION)-candidates/build$(CANDIDATE_BUILD)
+endif
+COMPONENT_ARCHIVE_URL=	$(MOZILLA_FTP)/source/$(COMPONENT_ARCHIVE)
 
 LANG_LIST=	ar bg ca cs da de el es-AR es-ES et fi fr he hr hu id is it ja ko lt nl nn-NO pl pt-BR pt-PT ro ru sk sl sq sr sv-SE tr uk vi zh-CN zh-TW
 LANG_FILES_LOCATION=	http://ftp.mozilla.org/pub/mozilla.org/thunderbird/releases/$(COMPONENT_VERSION)/linux-i686/xpi/
 
-LIGHTNING_VERSION=5.4
+LIGHTNING_VERSION=6.2
 LIGHTNING_DIR="$(PROTO_DIR)/usr/lib/thunderbird-$(COMPONENT_VERSION)/extensions/{e2fda1a4-762b-4020-b5ad-a41df1933103}"
 GDATA_PROVIDER_DIR="$(PROTO_DIR)/usr/lib/thunderbird/extensions/{a62ef8ec-5fdc-40c2-873c-223b8a6925cc}"
 
 COMPONENT_ARCHIVE_1=		lightning-$(LIGHTNING_VERSION)-sm+tb-linux.xpi
-COMPONENT_ARCHIVE_HASH_1=	sha256:1dba9da346bf0a4755eb3466b754f3a0acb22f2ff8195d0c907c2afeb23115e8
+COMPONENT_ARCHIVE_HASH_1=	sha256:f858e650a0564fdcea57e3e295c4afce07a4f23aa508d745a4a9e4285b297e38
 COMPONENT_ARCHIVE_URL_1=	https://addons.cdn.mozilla.net/user-media/addons/_attachments/2313/$(COMPONENT_ARCHIVE_1)
+COMPONENT_ARCHIVE_URL_1=	https://addons.thunderbird.net/thunderbird/downloads/file/1012321/$(COMPONENT_ARCHIVE_1)
 
 include $(WS_MAKE_RULES)/prep.mk
 include $(WS_MAKE_RULES)/configure.mk
 include $(WS_MAKE_RULES)/ips.mk
 
-COMPONENT_PREP_ACTION = ( cd $(@D) && autoconf-2.13 &&\
-			  cd $(@D)/mozilla && autoconf-2.13 &&\
-                          cd $(@D)/mozilla/js/src && autoconf-2.13 )
+# because we touched old-configure.in and js/src/old-configure.in
+COMPONENT_PRE_CONFIGURE_ACTION += (cd $(COMPONENT_NAME)-$(COMPONENT_VERSION); autoreconf; touch configure; cd js/src; autoreconf; touch configure);
 
-COMPONENT_PRE_CONFIGURE_ACTION =        (cp $(COMPONENT_DIR)/files/gld-wrapper  $(BUILD_DIR) && chmod +x $(BUILD_DIR)/gld-wrapper )
+COMPONENT_POST_BUILD_ACTION = \
+        (cd $(@D)/mail/installer ; $(ENV) $(COMPONENT_BUILD_ENV) \
+                $(GMAKE) $(COMPONENT_BUILD_ARGS) $(COMPONENT_BUILD_TARGETS))
 
-PATH=$(PATH.gnu)
+PATH=$(USRBINDIR.64):$(PATH.illumos)
 
-CONFIGURE_OPTIONS =	--disable-alsa
-CONFIGURE_OPTIONS +=	--enable-dbus
-CONFIGURE_OPTIONS +=	--enable-gnomeui
-CONFIGURE_OPTIONS +=	--enable-jemalloc
-CONFIGURE_OPTIONS +=	--disable-debug
-CONFIGURE_OPTIONS +=	--disable-tests
-CONFIGURE_OPTIONS +=	--disable-debug-symbols
+GNU_ARCH=               x86_64-sun-solaris
+
+FIREFOX_LIBDIR =        $(CONFIGURE_LIBDIR.$(BITS))
+CONFIGURE_OPTIONS=
+#CONFIGURE_OPTIONS +=	
+#CONFIGURE_OPTIONS =     --enable-application=comm/mail
+CONFIGURE_OPTIONS +=    --prefix=$(CONFIGURE_PREFIX)
+CONFIGURE_OPTIONS +=    --libdir=$(FIREFOX_LIBDIR)
+CONFIGURE_OPTIONS +=    --host=$(GNU_ARCH)
+CONFIGURE_OPTIONS +=    --target=$(GNU_ARCH)
+
+CONFIGURE_OPTIONS +=    --enable-default-toolkit=cairo-gtk3
 CONFIGURE_OPTIONS +=	--enable-install-strip
-CONFIGURE_OPTIONS +=	--enable-optimize=-O2
-CONFIGURE_OPTIONS +=	--disable-webrtc
-CONFIGURE_OPTIONS +=	--enable-official-branding
-CONFIGURE_OPTIONS +=	--disable-updater
-CONFIGURE_OPTIONS +=	--enable-pulseaudio
-CONFIGURE_OPTIONS +=	--enable-system-ffi
-CONFIGURE_OPTIONS +=	--enable-system-pixman
-CONFIGURE_OPTIONS +=	--with-system-zlib
-CONFIGURE_OPTIONS +=	--with-system-bz2
-CONFIGURE_OPTIONS +=	--disable-crashreporter
+CONFIGURE_OPTIONS +=    --enable-official-branding
+CONFIGURE_OPTIONS +=    --enable-optimize="-O2 -fno-schedule-insns2 -fno-lifetime-dse -fno-delete-null-pointer-checks"
+CONFIGURE_OPTIONS +=    --enable-update-channel=esr
+CONFIGURE_OPTIONS +=	--enable-release
+CONFIGURE_OPTIONS +=    --disable-debug
+CONFIGURE_OPTIONS +=    --disable-debug-symbols
+CONFIGURE_OPTIONS +=    --disable-tests
+CONFIGURE_OPTIONS +=    --disable-updater
+
+CONFIGURE_OPTIONS +=    --enable-system-bz2
+CONFIGURE_OPTIONS +=    --enable-system-ffi
+# build/amd64/dist/system_wrappers/event.h:3:24: fatal error: event.h: No such file or directory
+#CONFIGURE_OPTIONS +=	--enable-system-libevent
+#CONFIGURE_OPTIONS +=	--enable-system-nspr
+#CONFIGURE_OPTIONS +=	--enable-system-nss
+CONFIGURE_OPTIONS +=    --enable-system-pixman
+# xpcshell: Undefined symbol sqlite3_expanded_sql referenced in ../../../toolkit/library/libxul.so
+#CONFIGURE_OPTIONS +=	--enable-system-sqlite
+CONFIGURE_OPTIONS +=    --enable-system-zlib
+
+CONFIGURE_OPTIONS +=	--enable-dbus
+CONFIGURE_OPTIONS +=    --enable-intl-api
+CONFIGURE_OPTIONS +=	--enable-libproxy
+CONFIGURE_OPTIONS +=    --enable-pthreads
+CONFIGURE_OPTIONS +=    --enable-pulseaudio
 CONFIGURE_OPTIONS +=    --enable-startup-notification
-CONFIGURE_OPTIONS +=	--enable-calendar
-CONFIGURE_OPTIONS +=	--enable-application=mail
-CONFIGURE_OPTIONS +=    --enable-default-toolkit=cairo-gtk2
-CONFIGURE_OPTIONS +=	--prefix=/usr
-CONFIGURE_OPTIONS +=	--libdir=/usr/lib
+CONFIGURE_OPTIONS +=	--disable-alsa
+CONFIGURE_OPTIONS +=    --disable-crashreporter
+CONFIGURE_OPTIONS +=    --disable-dtrace
+CONFIGURE_OPTIONS +=    --disable-jemalloc
+CONFIGURE_OPTIONS +=    --disable-webrtc
+
+COMPONENT_BUILD_ARGS += $(JOBS:%=-j%)
 
 CXXFLAGS +=	-Wno-invalid-offsetof -fpermissive
 
@@ -86,8 +117,7 @@ ENV +=	PKG_SKIP_STRIP=1
 ENV +=	MOZILLA_PKG_NAME=thunderbird
 ENV +=	CXXFLAGS="$(CXXFLAGS)"
 ENV +=  OS_DEFINES="-D__USE_LEGACY_PROTOTYPES__"
-ENV +=  GLD_WRAPPER=$(BUILD_DIR)/gld-wrapper
-ENV +=  LDFLAGS="-L$(BUILD_DIR_32)/dist/lib -L$(BUILD_DIR_32)/dist/bin"
+ENV +=  LDFLAGS="-L$(BUILD_DIR_64)/dist/lib -L$(BUILD_DIR_64)/dist/bin"
 
 CONFIGURE_ENV =	$(ENV)
 COMPONENT_BUILD_ENV =	$(ENV)
@@ -97,14 +127,14 @@ LANG_FILES=$(addsuffix .xpi,$(LANG_LIST))
 
 CLEAN_PATHS += $(LANG_FILES)
 
-COMPONENT_BUILD_ARGS =
+#COMPONENT_BUILD_ARGS =
 
 $(LANG_FILES): 
 	$(FETCH) --file $@  --url $(LANG_FILES_LOCATION)/$@
 
 COMPONENT_POST_INSTALL_ACTION += \
 	$(RM) -r $(LIGHTNING_DIR) ; \
-	$(CP) -r $(BUILD_DIR_32)/dist/bin/distribution/extensions/{e2fda1a4-762b-4020-b5ad-a41df1933103} \
+	$(CP) -r $(BUILD_DIR_64)/dist/bin/distribution/extensions/{e2fda1a4-762b-4020-b5ad-a41df1933103} \
 	  $(LIGHTNING_DIR) ; \
 	unzip -u -d $(LIGHTNING_DIR) $(USERLAND_ARCHIVES)$(COMPONENT_ARCHIVE_1); \
 	for file in $(PROTO_DIR)/usr/lib/thunderbird-$(COMPONENT_VERSION)/*.so \
@@ -125,15 +155,15 @@ COMPONENT_TEST_TARGETS=check-jit-test
 COMPONENT_TEST_TRANSFORMS += \
 	'-e "/\(^TEST-PASS\).*/d" '
 
-$(SOURCE_DIR)/.patched-firefox-%: GPATCH_FLAGS += -d $(@D)/mozilla
+$(SOURCE_DIR)/.patched-firefox-%: GPATCH_FLAGS += -d $(@D)
 
 download prep:: $(LANG_FILES)
 
-build: $(BUILD_32)
+build:		$(BUILD_64)
 
-install: $(INSTALL_32)
+install:	$(INSTALL_64)
 
-test:	$(TEST_32)
+test:		$(TEST_64)
 
 # Auto-generated dependencies
 REQUIRED_PACKAGES += developer/build/autoconf-213
