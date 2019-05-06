@@ -61,48 +61,52 @@ PATH=$(USRBINDIR.64):$(PATH.illumos)
 
 GNU_ARCH=               x86_64-sun-solaris
 
+
 FIREFOX_LIBDIR =        $(CONFIGURE_LIBDIR.$(BITS))
+
+MOZCONFIG=		$(SOURCE_DIR)/mozconfig
+
 CONFIGURE_OPTIONS=
-#CONFIGURE_OPTIONS +=	
-#CONFIGURE_OPTIONS =     --enable-application=comm/mail
-CONFIGURE_OPTIONS +=    --prefix=$(CONFIGURE_PREFIX)
-CONFIGURE_OPTIONS +=    --libdir=$(FIREFOX_LIBDIR)
-CONFIGURE_OPTIONS +=    --host=$(GNU_ARCH)
-CONFIGURE_OPTIONS +=    --target=$(GNU_ARCH)
-
-CONFIGURE_OPTIONS +=    --enable-default-toolkit=cairo-gtk3
-CONFIGURE_OPTIONS +=	--enable-install-strip
-CONFIGURE_OPTIONS +=    --enable-official-branding
-CONFIGURE_OPTIONS +=    --enable-optimize="-O2 -fno-schedule-insns2 -fno-lifetime-dse -fno-delete-null-pointer-checks"
-CONFIGURE_OPTIONS +=    --enable-update-channel=esr
-CONFIGURE_OPTIONS +=	--enable-release
-CONFIGURE_OPTIONS +=    --disable-debug
-CONFIGURE_OPTIONS +=    --disable-debug-symbols
-CONFIGURE_OPTIONS +=    --disable-tests
-CONFIGURE_OPTIONS +=    --disable-updater
-
-CONFIGURE_OPTIONS +=    --enable-system-bz2
-CONFIGURE_OPTIONS +=    --enable-system-ffi
 # build/amd64/dist/system_wrappers/event.h:3:24: fatal error: event.h: No such file or directory
 #CONFIGURE_OPTIONS +=	--enable-system-libevent
 #CONFIGURE_OPTIONS +=	--enable-system-nspr
 #CONFIGURE_OPTIONS +=	--enable-system-nss
-CONFIGURE_OPTIONS +=    --enable-system-pixman
 # xpcshell: Undefined symbol sqlite3_expanded_sql referenced in ../../../toolkit/library/libxul.so
 #CONFIGURE_OPTIONS +=	--enable-system-sqlite
-CONFIGURE_OPTIONS +=    --enable-system-zlib
 
-CONFIGURE_OPTIONS +=	--enable-dbus
-CONFIGURE_OPTIONS +=    --enable-intl-api
-CONFIGURE_OPTIONS +=	--enable-libproxy
-CONFIGURE_OPTIONS +=    --enable-pthreads
-CONFIGURE_OPTIONS +=    --enable-pulseaudio
-CONFIGURE_OPTIONS +=    --enable-startup-notification
-CONFIGURE_OPTIONS +=	--disable-alsa
-CONFIGURE_OPTIONS +=    --disable-crashreporter
-CONFIGURE_OPTIONS +=    --disable-dtrace
-CONFIGURE_OPTIONS +=    --disable-jemalloc
-CONFIGURE_OPTIONS +=    --disable-webrtc
+COMPONENT_PRE_CONFIGURE_ACTION += \
+	echo "ac_add_options --prefix=$(CONFIGURE_PREFIX)" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --libdir=$(FIREFOX_LIBDIR)" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --host=$(GNU_ARCH)" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --target=$(GNU_ARCH)" >> $(MOZCONFIG) ; \
+	echo "ac_add_options MOZILLA_OFFICIAL=1" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-application=comm/mail" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-calendar" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-default-toolkit=cairo-gtk3" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-optimize=\"-O2 -fno-schedule-insns2 -fno-lifetime-dse -fno-delete-null-pointer-checks\"" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-install-strip" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-official-branding" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-update-channel=esr" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-release" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --disable-debug" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --disable-debug-symbols" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --disable-tests" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --disable-updater" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-system-bz2" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-system-ffi" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-system-pixman" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-system-zlib" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-dbus" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-intl-api" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-libproxy" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-pthreads" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-pulseaudio" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-startup-notification" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --disable-alsa" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --disable-crashreporter" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --disable-dtrace" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --disable-jemalloc" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --disable-webrtc" >> $(MOZCONFIG) ; \
 
 COMPONENT_BUILD_ARGS += $(JOBS:%=-j%)
 
