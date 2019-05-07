@@ -35,7 +35,7 @@ endif
 COMPONENT_ARCHIVE_URL=	$(MOZILLA_FTP)/source/$(COMPONENT_ARCHIVE)
 
 LANG_LIST=	ar bg ca cs da de el es-AR es-ES et fi fr he hr hu id is it ja ko lt nl nn-NO pl pt-BR pt-PT ro ru sk sl sq sr sv-SE tr uk vi zh-CN zh-TW
-LANG_FILES_LOCATION=	http://ftp.mozilla.org/pub/mozilla.org/thunderbird/releases/$(COMPONENT_VERSION)/linux-i686/xpi/
+LANG_FILES_LOCATION=	http://ftp.mozilla.org/pub/mozilla.org/thunderbird/releases/$(COMPONENT_VERSION)/linux-x86_64/xpi/
 
 LIGHTNING_VERSION=6.2
 LIGHTNING_DIR="$(PROTO_DIR)/usr/lib/thunderbird-$(COMPONENT_VERSION)/extensions/{e2fda1a4-762b-4020-b5ad-a41df1933103}"
@@ -49,13 +49,6 @@ COMPONENT_ARCHIVE_URL_1=	https://addons.thunderbird.net/thunderbird/downloads/fi
 include $(WS_MAKE_RULES)/prep.mk
 include $(WS_MAKE_RULES)/configure.mk
 include $(WS_MAKE_RULES)/ips.mk
-
-# because we touched old-configure.in and js/src/old-configure.in
-COMPONENT_PRE_CONFIGURE_ACTION += (cd $(COMPONENT_NAME)-$(COMPONENT_VERSION); autoreconf; touch configure; cd js/src; autoreconf; touch configure);
-
-COMPONENT_POST_BUILD_ACTION = \
-        (cd $(@D)/mail/installer ; $(ENV) $(COMPONENT_BUILD_ENV) \
-                $(GMAKE) $(COMPONENT_BUILD_ARGS) $(COMPONENT_BUILD_TARGETS))
 
 PATH=$(USRBINDIR.64):$(PATH.illumos)
 
@@ -75,11 +68,10 @@ CONFIGURE_OPTIONS=
 #CONFIGURE_OPTIONS +=	--enable-system-sqlite
 
 COMPONENT_PRE_CONFIGURE_ACTION += \
-	echo "ac_add_options --prefix=$(CONFIGURE_PREFIX)" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --prefix=$(CONFIGURE_PREFIX)" > $(MOZCONFIG) ; \
 	echo "ac_add_options --libdir=$(FIREFOX_LIBDIR)" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --host=$(GNU_ARCH)" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --target=$(GNU_ARCH)" >> $(MOZCONFIG) ; \
-	echo "ac_add_options MOZILLA_OFFICIAL=1" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --enable-application=comm/mail" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --enable-calendar" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --enable-default-toolkit=cairo-gtk3" >> $(MOZCONFIG) ; \
@@ -90,7 +82,7 @@ COMPONENT_PRE_CONFIGURE_ACTION += \
 	echo "ac_add_options --enable-release" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --disable-debug" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --disable-debug-symbols" >> $(MOZCONFIG) ; \
-	echo "ac_add_options --disable-tests" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-tests" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --disable-updater" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --enable-system-bz2" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --enable-system-ffi" >> $(MOZCONFIG) ; \
@@ -104,9 +96,17 @@ COMPONENT_PRE_CONFIGURE_ACTION += \
 	echo "ac_add_options --enable-startup-notification" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --disable-alsa" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --disable-crashreporter" >> $(MOZCONFIG) ; \
-	echo "ac_add_options --disable-dtrace" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --enable-dtrace" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --disable-jemalloc" >> $(MOZCONFIG) ; \
 	echo "ac_add_options --disable-webrtc" >> $(MOZCONFIG) ; \
+	echo "ac_add_options --disable-verify-mar" >> $(MOZCONFIG) ; \
+
+# because we touched old-configure.in and js/src/old-configure.in
+COMPONENT_PRE_CONFIGURE_ACTION += (cd $(COMPONENT_NAME)-$(COMPONENT_VERSION); autoreconf; touch configure; cd js/src; autoreconf; touch configure);
+
+COMPONENT_POST_BUILD_ACTION = \
+        (cd $(@D)/mail/installer ; $(ENV) $(COMPONENT_BUILD_ENV) \
+                $(GMAKE) $(COMPONENT_BUILD_ARGS) $(COMPONENT_BUILD_TARGETS))
 
 COMPONENT_BUILD_ARGS += $(JOBS:%=-j%)
 
