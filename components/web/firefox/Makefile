@@ -66,7 +66,10 @@ GNU_ARCH=		x86_64-sun-solaris
 
 #LD_Z_IGNORE=
 #LD_B_DIRECT=
+
 FIREFOX_LIBDIR =	$(CONFIGURE_LIBDIR.$(BITS))
+MPS_LIBDIR =		/usr/lib/mps/amd64
+
 CONFIGURE_OPTIONS =	--enable-application=browser
 CONFIGURE_OPTIONS +=	--enable-official-branding
 CONFIGURE_OPTIONS +=	--disable-updater
@@ -87,6 +90,8 @@ CONFIGURE_OPTIONS +=	--enable-default-toolkit=cairo-gtk3
 CONFIGURE_OPTIONS +=	--enable-system-pixman
 CONFIGURE_OPTIONS +=	--with-system-zlib
 CONFIGURE_OPTIONS +=	--with-system-bz2
+CONFIGURE_OPTIONS +=	--with-system-nspr
+CONFIGURE_OPTIONS +=	--with-system-nss
 CONFIGURE_OPTIONS +=	--enable-system-ffi
 CONFIGURE_OPTIONS +=	--prefix=$(CONFIGURE_PREFIX)
 CONFIGURE_OPTIONS +=	--libdir=$(FIREFOX_LIBDIR)
@@ -132,17 +137,9 @@ build: $(BUILD_64)
 COMPONENT_POST_INSTALL_ACTION  = \
     for file in $(PROTO_DIR)$(FIREFOX_LIBDIR)/firefox/*.so \
           $(PROTO_DIR)$(FIREFOX_LIBDIR)/firefox/plugin-container; do \
-        /usr/bin/elfedit -e 'dyn:value -s  RUNPATH "$(GCC_LIBDIR):$(FIREFOX_LIBDIR)/firefox:$$ORIGIN:$$ORIGIN/.."' $$file ; \
-        /usr/bin/elfedit -e 'dyn:value -s  RPATH   "$(GCC_LIBDIR):$(FIREFOX_LIBDIR)/firefox:$$ORIGIN:$$ORIGIN/.."' $$file ; \
+        /usr/bin/elfedit -e 'dyn:value -s  RUNPATH "$(GCC_LIBDIR):$(MPS_LIBDIR):$$ORIGIN:$$ORIGIN/.."' $$file ; \
+        /usr/bin/elfedit -e 'dyn:value -s  RPATH   "$(GCC_LIBDIR):$(MPS_LIBDIR):$$ORIGIN:$$ORIGIN/.."' $$file ; \
     done ;
-
-SIGNED_LIST = libsoftokn3.so libnssdbm3.so libfreebl3.so
-
-COMPONENT_POST_INSTALL_ACTION += \
-        slist='$(SIGNED_LIST)' ; for f in $$slist ; do \
-            mcs -d $(PROTO_DIR)$(FIREFOX_LIBDIR)/firefox/$$f ; \
-            LD_LIBRARY_PATH=$(PROTO_DIR)$(FIREFOX_LIBDIR)/firefox $(BUILD_DIR_64)/dist/bin/shlibsign -v -i $(PROTO_DIR)$(FIREFOX_LIBDIR)/firefox/$$f ; \
-        done ;
 
 install: $(INSTALL_64)
 
@@ -156,8 +153,10 @@ REQUIRED_PACKAGES += runtime/python-27
 REQUIRED_PACKAGES += runtime/nodejs-12
 REQUIRED_PACKAGES += system/header/header-audio
 
-# Auto-generated dependencies
 REQUIRED_PACKAGES += SUNWcs
+REQUIRED_PACKAGES += $(GXX_RUNTIME_PKG)
+REQUIRED_PACKAGES += $(GCC_RUNTIME_PKG)
+# Auto-generated dependencies
 REQUIRED_PACKAGES += library/desktop/atk
 REQUIRED_PACKAGES += library/desktop/cairo
 REQUIRED_PACKAGES += library/desktop/gdk-pixbuf
@@ -167,15 +166,15 @@ REQUIRED_PACKAGES += library/desktop/pango
 REQUIRED_PACKAGES += library/glib2
 REQUIRED_PACKAGES += library/graphics/pixman
 REQUIRED_PACKAGES += library/libffi
+REQUIRED_PACKAGES += library/nspr
 REQUIRED_PACKAGES += library/zlib
 REQUIRED_PACKAGES += system/library
 REQUIRED_PACKAGES += system/library/fontconfig
 REQUIRED_PACKAGES += system/library/freetype-2
-REQUIRED_PACKAGES += $(GXX_RUNTIME_PKG)
-REQUIRED_PACKAGES += $(GCC_RUNTIME_PKG)
 REQUIRED_PACKAGES += system/library/libdbus
 REQUIRED_PACKAGES += system/library/libdbus-glib
 REQUIRED_PACKAGES += system/library/math
+REQUIRED_PACKAGES += system/library/mozilla-nss
 REQUIRED_PACKAGES += x11/library/libx11
 REQUIRED_PACKAGES += x11/library/libxcb
 REQUIRED_PACKAGES += x11/library/libxext
