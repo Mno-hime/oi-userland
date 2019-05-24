@@ -2,8 +2,8 @@ Firefox 60ESR only. Trunk should be fine.
 
 https://bugzilla.mozilla.org/show_bug.cgi?id=1485940#c12
 
---- a/servo/components/style/applicable_declarations.rs	2018-06-21 19:07:12.000000000 +0000
-+++ b/servo/components/style/applicable_declarations.rs	2018-08-31 20:09:12.336745125 +0000
+--- servo/components/style/applicable_declarations.rs	2018-06-21 19:07:12.000000000 +0000
++++ servo/components/style/applicable_declarations.rs	2018-08-31 20:09:12.336745125 +0000
 @@ -51,12 +51,8 @@
      }
  

@@ -4,8 +4,8 @@
           ^~~~~~~~~~~~
 compilation terminated.
 
---- a/comm/ldap/c-sdk/libraries/libldap/sort.c
-+++ b/comm/ldap/c-sdk/libraries/libldap/sort.c
+--- comm/ldap/c-sdk/libraries/libldap/sort.c
++++ comm/ldap/c-sdk/libraries/libldap/sort.c
 @@ -58,11 +58,7 @@
   * We don't want to require use of libxp when linking with libldap, so
   * I'll leave use of xp_qsort as a MOZILLA_CLIENT-only thing for now. --mcs

@@ -1,7 +1,7 @@
 Debug build fails because of this assertion. Should be investigated.
 
---- a/intl/locale/LocaleService.cpp
-+++ b/intl/locale/LocaleService.cpp
+--- intl/locale/LocaleService.cpp
++++ intl/locale/LocaleService.cpp
 @@ -693,7 +693,7 @@
      GetGREFileContents("update.locale", &locale);
      locale.Trim(" \t\n\r");

@@ -1,6 +1,6 @@
 diff --git a/ipc/chromium/src/third_party/libevent/README.mozilla b/ipc/chromium/src/third_party/libevent/README.mozilla
---- a/ipc/chromium/src/third_party/libevent/README.mozilla
-+++ b/ipc/chromium/src/third_party/libevent/README.mozilla
+--- ipc/chromium/src/third_party/libevent/README.mozilla
++++ ipc/chromium/src/third_party/libevent/README.mozilla
 @@ -24,7 +24,7 @@
  2. Apply the following patches from
  ipc/chromium/src/third_party/libevent/patches/:
@@ -12,8 +12,8 @@ diff --git a/ipc/chromium/src/third_party/libevent/README.mozilla b/ipc/chromium
  
 diff --git a/ipc/chromium/src/third_party/libevent/evutil_rand.c b/ipc/chromium/src/third_party/libevent/evutil_rand.c
 index 01e499c839d6..02df7899d106 100644
---- a/ipc/chromium/src/third_party/libevent/evutil_rand.c
-+++ b/ipc/chromium/src/third_party/libevent/evutil_rand.c
+--- ipc/chromium/src/third_party/libevent/evutil_rand.c
++++ ipc/chromium/src/third_party/libevent/evutil_rand.c
 @@ -187,17 +187,17 @@ ev_arc4random_buf(void *buf, size_t n)
  #endif /* } !EVENT__HAVE_ARC4RANDOM */
  
@@ -35,8 +35,8 @@ index 01e499c839d6..02df7899d106 100644
  
 diff --git a/ipc/chromium/src/third_party/libevent/include/event2/util.h b/ipc/chromium/src/third_party/libevent/include/event2/util.h
 index 825f5076cc6c..c6f450bf0d08 100644
---- a/ipc/chromium/src/third_party/libevent/include/event2/util.h
-+++ b/ipc/chromium/src/third_party/libevent/include/event2/util.h
+--- ipc/chromium/src/third_party/libevent/include/event2/util.h
++++ ipc/chromium/src/third_party/libevent/include/event2/util.h
 @@ -837,17 +837,17 @@ int evutil_secure_rng_init(void);
   * user of the secure RNG might be running. Don't pass anything other than a
   * real /dev/...random device file here, or you might lose security.)

@@ -14,8 +14,8 @@ I considered also renaming __DBINTERFACE_PRIVATE, but that is part of the
 external interface.
 
 diff --git a/security/nss/lib/security/nss/dbm/include/extern.h b/lib/dbm/include/extern.h
---- a/security/nss/lib/security/nss/dbm/include/extern.h
-+++ b/security/nss/lib/dbm/include/extern.h
+--- security/nss/lib/security/nss/dbm/include/extern.h
++++ security/nss/lib/dbm/include/extern.h
 @@ -26,38 +26,38 @@
   * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
   * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
@@ -80,8 +80,8 @@ diff --git a/security/nss/lib/security/nss/dbm/include/extern.h b/lib/dbm/includ
  extern int hash_accesses, hash_collisions, hash_expansions, hash_overflows;
  #endif
 diff --git a/security/nss/lib/security/nss/dbm/include/hash.h b/lib/dbm/include/hash.h
---- a/security/nss/lib/security/nss/dbm/include/hash.h
-+++ b/security/nss/lib/dbm/include/hash.h
+--- security/nss/lib/security/nss/dbm/include/hash.h
++++ security/nss/lib/dbm/include/hash.h
 @@ -185,17 +185,17 @@ typedef struct htab { /* Memory resident
  
  #define SPLITSHIFT 11
@@ -160,8 +160,8 @@ diff --git a/security/nss/lib/security/nss/dbm/include/hash.h b/lib/dbm/include/
 +int dbm_big_keydata(HTAB *hashp, BUFHEAD *bufp, DBT *key, DBT *val, int set);
 +int dbm_split_page(HTAB *hashp, uint32 obucket, uint32 nbucket);
 diff --git a/security/nss/lib/security/nss/dbm/include/mcom_db.h b/lib/dbm/include/mcom_db.h
---- a/security/nss/lib/security/nss/dbm/include/mcom_db.h
-+++ b/security/nss/lib/dbm/include/mcom_db.h
+--- security/nss/lib/security/nss/dbm/include/mcom_db.h
++++ security/nss/lib/dbm/include/mcom_db.h
 @@ -282,26 +282,26 @@ typedef enum { LockOutDatabase,
  #define DB_TXN 0x80000000   /* Do transactions. */
  #else
@@ -220,8 +220,8 @@ diff --git a/security/nss/lib/security/nss/dbm/include/mcom_db.h b/lib/dbm/inclu
  
  #endif /* !_DB_H_ */
 diff --git a/security/nss/lib/security/nss/dbm/include/ncompat.h b/lib/dbm/include/ncompat.h
---- a/security/nss/lib/security/nss/dbm/include/ncompat.h
-+++ b/security/nss/lib/dbm/include/ncompat.h
+--- security/nss/lib/security/nss/dbm/include/ncompat.h
++++ security/nss/lib/dbm/include/ncompat.h
 @@ -84,23 +84,23 @@ typedef unsigned int  sigset_t;
  #define sigaddset(set, signo) (*(set) |= sigmask(signo), 0)
  #define sigdelset(set, signo) (*(set) &= ~sigmask(signo), 0)
@@ -250,8 +250,8 @@ diff --git a/security/nss/lib/security/nss/dbm/include/ncompat.h b/lib/dbm/inclu
  #ifndef BYTE_ORDER
  #define LITTLE_ENDIAN 1234    /* LSB first: i386, vax */
 diff --git a/security/nss/lib/security/nss/dbm/src/db.c b/lib/dbm/src/db.c
---- a/security/nss/lib/security/nss/dbm/src/db.c
-+++ b/security/nss/lib/dbm/src/db.c
+--- security/nss/lib/security/nss/dbm/src/db.c
++++ security/nss/lib/dbm/src/db.c
 @@ -87,48 +87,48 @@ dbopen(const char *fname, int flags, int
       O_RDWR | O_TRUNC)
  #endif
@@ -314,8 +314,8 @@ diff --git a/security/nss/lib/security/nss/dbm/src/db.c b/lib/dbm/src/db.c
 +    dbp->sync = (int (*)(const struct dbm_db *, uint))dbm_dberr;
  }
 diff --git a/security/nss/lib/security/nss/dbm/src/h_bigkey.c b/lib/dbm/src/h_bigkey.c
---- a/security/nss/lib/security/nss/dbm/src/h_bigkey.c
-+++ b/security/nss/lib/dbm/src/h_bigkey.c
+--- security/nss/lib/security/nss/dbm/src/h_bigkey.c
++++ security/nss/lib/dbm/src/h_bigkey.c
 @@ -80,17 +80,17 @@ static int collect_data(HTAB *, BUFHEAD 
   *
   * You need to do an insert and the key/data pair is too big
@@ -753,8 +753,8 @@ diff --git a/security/nss/lib/security/nss/dbm/src/h_bigkey.c b/lib/dbm/src/h_bi
      if (change)
          ret->newp = tmpp;
 diff --git a/security/nss/lib/security/nss/dbm/src/h_func.c b/lib/dbm/src/h_func.c
---- a/security/nss/lib/security/nss/dbm/src/h_func.c
-+++ b/security/nss/lib/dbm/src/h_func.c
+--- security/nss/lib/security/nss/dbm/src/h_func.c
++++ security/nss/lib/dbm/src/h_func.c
 @@ -47,17 +47,17 @@ static char sccsid[] = "@(#)hash_func.c 
  #if 0
  static uint32 hash1(const void *, size_t);
@@ -775,8 +775,8 @@ diff --git a/security/nss/lib/security/nss/dbm/src/h_func.c b/lib/dbm/src/h_func
   *
   * This came from ejb's hsearch.
 diff --git a/security/nss/lib/security/nss/dbm/src/h_log2.c b/lib/dbm/src/h_log2.c
---- a/security/nss/lib/security/nss/dbm/src/h_log2.c
-+++ b/security/nss/lib/dbm/src/h_log2.c
+--- security/nss/lib/security/nss/dbm/src/h_log2.c
++++ security/nss/lib/dbm/src/h_log2.c
 @@ -38,17 +38,17 @@ static char sccsid[] = "@(#)hash_log2.c 
  
  #include <stdio.h>
@@ -797,8 +797,8 @@ diff --git a/security/nss/lib/security/nss/dbm/src/h_log2.c b/lib/dbm/src/h_log2
      return (i);
  }
 diff --git a/security/nss/lib/security/nss/dbm/src/h_page.c b/lib/dbm/src/h_page.c
---- a/security/nss/lib/security/nss/dbm/src/h_page.c
-+++ b/security/nss/lib/dbm/src/h_page.c
+--- security/nss/lib/security/nss/dbm/src/h_page.c
++++ security/nss/lib/dbm/src/h_page.c
 @@ -199,27 +199,27 @@ putpair(char *p, const DBT *key, DBT *va
  }
  
@@ -1280,8 +1280,8 @@ diff --git a/security/nss/lib/security/nss/dbm/src/h_page.c b/lib/dbm/src/h_page
  }
  #endif
 diff --git a/security/nss/lib/security/nss/dbm/src/hash.c b/lib/dbm/src/hash.c
---- a/security/nss/lib/security/nss/dbm/src/hash.c
-+++ b/security/nss/lib/dbm/src/hash.c
+--- security/nss/lib/security/nss/dbm/src/hash.c
++++ security/nss/lib/dbm/src/hash.c
 @@ -113,33 +113,33 @@ int hash_accesses, hash_collisions, hash
  
  /* A new Lou (montulli@mozilla.com) routine.
@@ -1807,8 +1807,8 @@ diff --git a/security/nss/lib/security/nss/dbm/src/hash.c b/lib/dbm/src/hash.c
          bucket = bucket & hashp->LOW_MASK;
      return (bucket);
 diff --git a/security/nss/lib/security/nss/dbm/src/hash_buf.c b/lib/dbm/src/hash_buf.c
---- a/security/nss/lib/security/nss/dbm/src/hash_buf.c
-+++ b/security/nss/lib/dbm/src/hash_buf.c
+--- security/nss/lib/security/nss/dbm/src/hash_buf.c
++++ security/nss/lib/dbm/src/hash_buf.c
 @@ -99,17 +99,17 @@ static BUFHEAD *newbuf(HTAB *, uint32, B
   * address is a bucket index.  If prev_bp is not NULL, then it points to the
   * page previous to an overflow page that we are trying to find.

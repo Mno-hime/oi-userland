@@ -1,5 +1,5 @@
---- firefox-52.1.0esr/browser/branding/official/pref/firefox-branding.js.~1~	2017-05-04 11:51:32.593399439 +0300
-+++ firefox-52.1.0esr/browser/branding/official/pref/firefox-branding.js	2017-05-04 11:52:41.015959984 +0300
+--- browser/branding/official/pref/firefox-branding.js.~1~	2017-05-04 11:51:32.593399439 +0300
++++ browser/branding/official/pref/firefox-branding.js	2017-05-04 11:52:41.015959984 +0300
 @@ -3,7 +3,7 @@
   * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
  

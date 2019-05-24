@@ -20,13 +20,13 @@ PREFERRED_BITS=		64
 include ../../../make-rules/shared-macros.mk
 
 COMPONENT_NAME=		thunderbird
-COMPONENT_VERSION=	60.6.1
+COMPONENT_VERSION=	60.7.0
 COMPONENT_PROJECT_URL=	https://www.thunderbird.net/
 COMPONENT_SUMMARY= 	Mozilla Thunderbird Email/Newsgroup Client
 COMPONENT_SRC= 		$(COMPONENT_NAME)-$(COMPONENT_VERSION)
 COMPONENT_ARCHIVE= 	$(COMPONENT_SRC).source.tar.xz
 COMPONENT_ARCHIVE_HASH= \
-    sha256:17aef9232a76bdc812422883c02b01b4ecb7633c3ee9870da5e4ec0e20ba5f67
+	sha256:377ca762624df103dd768dc36b7632537b46aa83ddc9d336a157cadcde8bb51d
 ifndef CANDIDATE_BUILD
 MOZILLA_FTP = 		http://ftp.mozilla.org/pub/$(COMPONENT_NAME)/releases/$(COMPONENT_VERSION)
 else
@@ -49,6 +49,8 @@ COMPONENT_ARCHIVE_URL_1=	https://addons.thunderbird.net/thunderbird/downloads/fi
 include $(WS_MAKE_RULES)/prep.mk
 include $(WS_MAKE_RULES)/configure.mk
 include $(WS_MAKE_RULES)/ips.mk
+
+PATCH_LEVEL=0
 
 PATH=$(USRBINDIR.64):$(PATH.illumos)
 

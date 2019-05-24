@@ -2,8 +2,8 @@ Workaround which avoids crashes on sparc. Proper fix is needed.
 
 https://bugzilla.mozilla.org/show_bug.cgi?id=1511302
 
---- a/comm/mail/components/accountcreation/content/emailWizard.xul
-+++ b/comm/mail/components/accountcreation/content/emailWizard.xul
+--- comm/mail/components/accountcreation/content/emailWizard.xul
++++ comm/mail/components/accountcreation/content/emailWizard.xul
 @@ -181,10 +181,8 @@
            <textbox id="password"
                     class="padded"

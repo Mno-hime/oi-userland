@@ -1,8 +1,8 @@
 Avoid dependency on system/library/c++-runtime (Studio)
 It's unknow now why it's being added.
 
---- firefox-60.0/toolkit/library/moz.build
-+++ firefox-60.0/toolkit/library/moz.build
+--- toolkit/library/moz.build
++++ toolkit/library/moz.build
 @@ -287,15 +287,6 @@
  if CONFIG['MOZ_ENABLE_LIBPROXY']:
      OS_LIBS += CONFIG['MOZ_LIBPROXY_LIBS']

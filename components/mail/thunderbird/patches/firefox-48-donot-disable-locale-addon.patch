@@ -6,8 +6,8 @@ Solaris specific patch, will not send upstream.
 
 diff --git a/browser/app/profile/firefox.js b/browser/app/profile/firefox.js
 index 5ef66c9..7dcd0f5 100644
---- a/browser/app/profile/firefox.js
-+++ b/browser/app/profile/firefox.js
+--- browser/app/profile/firefox.js
++++ browser/app/profile/firefox.js
 @@ -57,7 +57,7 @@
  
  // Disable add-ons that are not installed by the user in all scopes by default.
