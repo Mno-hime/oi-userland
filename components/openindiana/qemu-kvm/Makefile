@@ -12,6 +12,7 @@
 #
 # Copyright 2011 EveryCity Ltd. All rights reserved.
 # Copyright 2012, Piotr Jasiukajtis
+# Copyright 2019, Michal Nowak
 #
 
 include ../../../make-rules/shared-macros.mk
@@ -19,7 +20,7 @@ include ../../../make-rules/shared-macros.mk
 PATH=	/opt/onbld/bin/i386:/usr/bin:/usr/sbin:/sbin:/usr/gnu/bin
 COMPONENT_NAME=		illumos-kvm-cmd
 COMPONENT_VERSION=	c1a197c8e4582c68739ab08f7e3198b2392c9820
-COMPONENT_REVISION=	2
+COMPONENT_REVISION=	3
 IPS_COMPONENT_VERSION=	0.0.1.20160303
 COMPONENT_SRC=		illumos-kvm-cmd-$(COMPONENT_VERSION)
 COMPONENT_ARCHIVE=	$(COMPONENT_SRC).zip
@@ -87,6 +88,7 @@ install_i386:	$(INSTALL_64)
 
 install:	install_$(MACH)
 
+# Auto-generated dependencies
 REQUIRED_PACKAGES += image/library/libpng16
 REQUIRED_PACKAGES += library/sdl
 REQUIRED_PACKAGES += library/zlib
