@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright 2017 <contributor>
+# Copyright 2018 <contributor>
 #
 
 set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
@@ -29,6 +29,7 @@ file path=usr/bin/delv
 file path=usr/bin/dig
 file path=usr/bin/host
 file path=usr/bin/isc-config.sh
+file path=usr/bin/mdig
 file path=usr/bin/named-rrchecker
 file path=usr/bin/nslookup
 file path=usr/bin/nsupdate
@@ -38,10 +39,12 @@ file path=usr/include/bind9/version.h
 file path=usr/include/dns/acache.h
 file path=usr/include/dns/acl.h
 file path=usr/include/dns/adb.h
+file path=usr/include/dns/badcache.h
 file path=usr/include/dns/bit.h
 file path=usr/include/dns/byaddr.h
 file path=usr/include/dns/cache.h
 file path=usr/include/dns/callbacks.h
+file path=usr/include/dns/catz.h
 file path=usr/include/dns/cert.h
 file path=usr/include/dns/client.h
 file path=usr/include/dns/clientinfo.h
@@ -55,15 +58,19 @@ file path=usr/include/dns/dlz.h
 file path=usr/include/dns/dlz_dlopen.h
 file path=usr/include/dns/dns64.h
 file path=usr/include/dns/dnssec.h
+file path=usr/include/dns/dnstap.h
 file path=usr/include/dns/ds.h
 file path=usr/include/dns/dsdigest.h
+file path=usr/include/dns/dyndb.h
 file path=usr/include/dns/ecdb.h
+file path=usr/include/dns/edns.h
 file path=usr/include/dns/enumclass.h
 file path=usr/include/dns/enumtype.h
 file path=usr/include/dns/events.h
 file path=usr/include/dns/fixedname.h
 file path=usr/include/dns/forward.h
 file path=usr/include/dns/geoip.h
+file path=usr/include/dns/ipkeylist.h
 file path=usr/include/dns/iptable.h
 file path=usr/include/dns/journal.h
 file path=usr/include/dns/keydata.h
@@ -80,6 +87,7 @@ file path=usr/include/dns/name.h
 file path=usr/include/dns/ncache.h
 file path=usr/include/dns/nsec.h
 file path=usr/include/dns/nsec3.h
+file path=usr/include/dns/nta.h
 file path=usr/include/dns/opcode.h
 file path=usr/include/dns/order.h
 file path=usr/include/dns/peer.h
@@ -151,6 +159,7 @@ file path=usr/include/isc/commandline.h
 file path=usr/include/isc/condition.h
 file path=usr/include/isc/counter.h
 file path=usr/include/isc/crc64.h
+file path=usr/include/isc/deprecated.h
 file path=usr/include/isc/dir.h
 file path=usr/include/isc/entropy.h
 file path=usr/include/isc/errno.h
@@ -165,6 +174,7 @@ file path=usr/include/isc/heap.h
 file path=usr/include/isc/hex.h
 file path=usr/include/isc/hmacmd5.h
 file path=usr/include/isc/hmacsha.h
+file path=usr/include/isc/ht.h
 file path=usr/include/isc/httpd.h
 file path=usr/include/isc/int.h
 file path=usr/include/isc/interfaceiter.h
@@ -175,11 +185,13 @@ file path=usr/include/isc/lang.h
 file path=usr/include/isc/lex.h
 file path=usr/include/isc/lfsr.h
 file path=usr/include/isc/lib.h
+file path=usr/include/isc/likely.h
 file path=usr/include/isc/list.h
 file path=usr/include/isc/log.h
 file path=usr/include/isc/magic.h
 file path=usr/include/isc/md5.h
 file path=usr/include/isc/mem.h
+file path=usr/include/isc/meminfo.h
 file path=usr/include/isc/msgcat.h
 file path=usr/include/isc/msgs.h
 file path=usr/include/isc/mutex.h
@@ -275,47 +287,53 @@ file path=usr/include/pk11/pk11.h
 file path=usr/include/pk11/result.h
 file path=usr/include/pk11/site.h
 file path=usr/include/pkcs11/cryptoki.h
+file path=usr/include/pkcs11/eddsa.h
 file path=usr/include/pkcs11/pkcs11.h
 file path=usr/include/pkcs11/pkcs11f.h
 file path=usr/include/pkcs11/pkcs11t.h
 file path=usr/lib/dns/libbind9.a
-link path=usr/lib/dns/libbind9.so target=libbind9.so.141.0.0
-link path=usr/lib/dns/libbind9.so.141 target=libbind9.so.141.0.0
-file path=usr/lib/dns/libbind9.so.141.0.0
+link path=usr/lib/dns/libbind9.so target=libbind9.so.161.0.2
+link path=usr/lib/dns/libbind9.so.161 target=libbind9.so.161.0.2
+file path=usr/lib/dns/libbind9.so.161.0.2
 file path=usr/lib/dns/libdns.a
-link path=usr/lib/dns/libdns.so target=libdns.so.190.0.2
-link path=usr/lib/dns/libdns.so.190 target=libdns.so.190.0.2
-file path=usr/lib/dns/libdns.so.190.0.2
+link path=usr/lib/dns/libdns.so target=libdns.so.1106.0.0
+link path=usr/lib/dns/libdns.so.1106 target=libdns.so.1106.0.0
+file path=usr/lib/dns/libdns.so.1106.0.0
 file path=usr/lib/dns/libirs.a
-link path=usr/lib/dns/libirs.so target=libirs.so.141.0.7
-link path=usr/lib/dns/libirs.so.141 target=libirs.so.141.0.7
-file path=usr/lib/dns/libirs.so.141.0.7
+link path=usr/lib/dns/libirs.so target=libirs.so.161.0.0
+link path=usr/lib/dns/libirs.so.161 target=libirs.so.161.0.0
+file path=usr/lib/dns/libirs.so.161.0.0
 file path=usr/lib/dns/libisc.a
-link path=usr/lib/dns/libisc.so target=libisc.so.189.1.0
-link path=usr/lib/dns/libisc.so.189 target=libisc.so.189.1.0
-file path=usr/lib/dns/libisc.so.189.1.0
+link path=usr/lib/dns/libisc.so target=libisc.so.1100.2.0
+link path=usr/lib/dns/libisc.so.1100 target=libisc.so.1100.2.0
+file path=usr/lib/dns/libisc.so.1100.2.0
 file path=usr/lib/dns/libisccc.a
-link path=usr/lib/dns/libisccc.so target=libisccc.so.140.0.5
-link path=usr/lib/dns/libisccc.so.140 target=libisccc.so.140.0.5
-file path=usr/lib/dns/libisccc.so.140.0.5
+link path=usr/lib/dns/libisccc.so target=libisccc.so.161.0.1
+link path=usr/lib/dns/libisccc.so.161 target=libisccc.so.161.0.1
+file path=usr/lib/dns/libisccc.so.161.0.1
 file path=usr/lib/dns/libisccfg.a
-link path=usr/lib/dns/libisccfg.so target=libisccfg.so.144.0.0
-link path=usr/lib/dns/libisccfg.so.144 target=libisccfg.so.144.0.0
-file path=usr/lib/dns/libisccfg.so.144.0.0
+link path=usr/lib/dns/libisccfg.so target=libisccfg.so.163.0.1
+link path=usr/lib/dns/libisccfg.so.163 target=libisccfg.so.163.0.1
+file path=usr/lib/dns/libisccfg.so.163.0.1
 file path=usr/lib/dns/liblwres.a
-link path=usr/lib/dns/liblwres.so target=liblwres.so.141.0.3
-link path=usr/lib/dns/liblwres.so.141 target=liblwres.so.141.0.3
-file path=usr/lib/dns/liblwres.so.141.0.3
-file path=usr/lib/python2.7/vendor-packages/isc-1.0-py2.7.egg-info
-file path=usr/lib/python2.7/vendor-packages/isc/__init__.py
-file path=usr/lib/python2.7/vendor-packages/isc/checkds.py
-file path=usr/lib/python2.7/vendor-packages/isc/coverage.py
-file path=usr/lib/python2.7/vendor-packages/isc/dnskey.py
-file path=usr/lib/python2.7/vendor-packages/isc/eventlist.py
-file path=usr/lib/python2.7/vendor-packages/isc/keydict.py
-file path=usr/lib/python2.7/vendor-packages/isc/keyevent.py
-file path=usr/lib/python2.7/vendor-packages/isc/keyzone.py
-file path=usr/lib/python2.7/vendor-packages/isc/utils.py
+link path=usr/lib/dns/liblwres.so target=liblwres.so.161.0.1
+link path=usr/lib/dns/liblwres.so.161 target=liblwres.so.161.0.1
+file path=usr/lib/dns/liblwres.so.161.0.1
+file path=usr/lib/python2.7/site-packages/isc-2.0-py2.7.egg-info
+file path=usr/lib/python2.7/site-packages/isc/__init__.py
+file path=usr/lib/python2.7/site-packages/isc/checkds.py
+file path=usr/lib/python2.7/site-packages/isc/coverage.py
+file path=usr/lib/python2.7/site-packages/isc/dnskey.py
+file path=usr/lib/python2.7/site-packages/isc/eventlist.py
+file path=usr/lib/python2.7/site-packages/isc/keydict.py
+file path=usr/lib/python2.7/site-packages/isc/keyevent.py
+file path=usr/lib/python2.7/site-packages/isc/keymgr.py
+file path=usr/lib/python2.7/site-packages/isc/keyseries.py
+file path=usr/lib/python2.7/site-packages/isc/keyzone.py
+file path=usr/lib/python2.7/site-packages/isc/parsetab.py
+file path=usr/lib/python2.7/site-packages/isc/policy.py
+file path=usr/lib/python2.7/site-packages/isc/rndc.py
+file path=usr/lib/python2.7/site-packages/isc/utils.py
 file path=usr/sbin/ddns-confgen
 file path=usr/sbin/dnssec-checkds
 file path=usr/sbin/dnssec-coverage
@@ -323,6 +341,7 @@ file path=usr/sbin/dnssec-dsfromkey
 file path=usr/sbin/dnssec-importkey
 file path=usr/sbin/dnssec-keyfromlabel
 file path=usr/sbin/dnssec-keygen
+file path=usr/sbin/dnssec-keymgr
 file path=usr/sbin/dnssec-revoke
 file path=usr/sbin/dnssec-settime
 file path=usr/sbin/dnssec-signzone
@@ -344,53 +363,49 @@ file path=usr/sbin/rndc
 file path=usr/sbin/rndc-confgen
 link path=usr/sbin/tsig-keygen target=ddns-confgen
 file path=usr/share/man/man1/arpaname.1
-file path=usr/share/man/man1/bind9-config.1
+hardlink path=usr/share/man/man1/bind9-config.1 target=isc-config.sh.1
 file path=usr/share/man/man1/delv.1
 file path=usr/share/man/man1/dig.1
 file path=usr/share/man/man1/host.1
-hardlink path=usr/share/man/man1/isc-config.sh.1 target=bind9-config.1
+file path=usr/share/man/man1/isc-config.sh.1
+file path=usr/share/man/man1/mdig.1
 file path=usr/share/man/man1/named-rrchecker.1
 file path=usr/share/man/man1/nslookup.1
 file path=usr/share/man/man1/nsupdate.1
 file path=usr/share/man/man3/lwres.3
 hardlink path=usr/share/man/man3/lwres_addr_parse.3 target=lwres_getnamebyaddr.3
-hardlink path=usr/share/man/man3/lwres_buffer.3 target=lwres_buffer_getmem.3
-hardlink path=usr/share/man/man3/lwres_buffer_add.3 target=lwres_buffer_getmem.3
-hardlink path=usr/share/man/man3/lwres_buffer_back.3 \
-    target=lwres_buffer_getmem.3
-hardlink path=usr/share/man/man3/lwres_buffer_clear.3 \
-    target=lwres_buffer_getmem.3
-hardlink path=usr/share/man/man3/lwres_buffer_first.3 \
-    target=lwres_buffer_getmem.3
+hardlink path=usr/share/man/man3/lwres_buffer.3 target=lwres_buffer_add.3
+file path=usr/share/man/man3/lwres_buffer_add.3
+hardlink path=usr/share/man/man3/lwres_buffer_back.3 target=lwres_buffer_add.3
+hardlink path=usr/share/man/man3/lwres_buffer_clear.3 target=lwres_buffer_add.3
+hardlink path=usr/share/man/man3/lwres_buffer_first.3 target=lwres_buffer_add.3
 hardlink path=usr/share/man/man3/lwres_buffer_forward.3 \
-    target=lwres_buffer_getmem.3
-file path=usr/share/man/man3/lwres_buffer_getmem.3
+    target=lwres_buffer_add.3
+hardlink path=usr/share/man/man3/lwres_buffer_getmem.3 target=lwres_buffer_add.3
 hardlink path=usr/share/man/man3/lwres_buffer_getuint16.3 \
-    target=lwres_buffer_getmem.3
+    target=lwres_buffer_add.3
 hardlink path=usr/share/man/man3/lwres_buffer_getuint32.3 \
-    target=lwres_buffer_getmem.3
+    target=lwres_buffer_add.3
 hardlink path=usr/share/man/man3/lwres_buffer_getuint8.3 \
-    target=lwres_buffer_getmem.3
-hardlink path=usr/share/man/man3/lwres_buffer_init.3 \
-    target=lwres_buffer_getmem.3
+    target=lwres_buffer_add.3
+hardlink path=usr/share/man/man3/lwres_buffer_init.3 target=lwres_buffer_add.3
 hardlink path=usr/share/man/man3/lwres_buffer_invalidate.3 \
-    target=lwres_buffer_getmem.3
-hardlink path=usr/share/man/man3/lwres_buffer_putmem.3 \
-    target=lwres_buffer_getmem.3
+    target=lwres_buffer_add.3
+hardlink path=usr/share/man/man3/lwres_buffer_putmem.3 target=lwres_buffer_add.3
 hardlink path=usr/share/man/man3/lwres_buffer_putuint16.3 \
-    target=lwres_buffer_getmem.3
+    target=lwres_buffer_add.3
 hardlink path=usr/share/man/man3/lwres_buffer_putuint32.3 \
-    target=lwres_buffer_getmem.3
+    target=lwres_buffer_add.3
 hardlink path=usr/share/man/man3/lwres_buffer_putuint8.3 \
-    target=lwres_buffer_getmem.3
+    target=lwres_buffer_add.3
 hardlink path=usr/share/man/man3/lwres_buffer_subtract.3 \
-    target=lwres_buffer_getmem.3
-hardlink path=usr/share/man/man3/lwres_conf_clear.3 target=lwres_conf_init.3
-hardlink path=usr/share/man/man3/lwres_conf_get.3 target=lwres_conf_init.3
-file path=usr/share/man/man3/lwres_conf_init.3
-hardlink path=usr/share/man/man3/lwres_conf_parse.3 target=lwres_conf_init.3
-hardlink path=usr/share/man/man3/lwres_conf_print.3 target=lwres_conf_init.3
-hardlink path=usr/share/man/man3/lwres_config.3 target=lwres_conf_init.3
+    target=lwres_buffer_add.3
+hardlink path=usr/share/man/man3/lwres_conf_clear.3 target=lwres_conf_print.3
+hardlink path=usr/share/man/man3/lwres_conf_get.3 target=lwres_conf_print.3
+hardlink path=usr/share/man/man3/lwres_conf_init.3 target=lwres_conf_print.3
+hardlink path=usr/share/man/man3/lwres_conf_parse.3 target=lwres_conf_print.3
+file path=usr/share/man/man3/lwres_conf_print.3
+hardlink path=usr/share/man/man3/lwres_config.3 target=lwres_conf_print.3
 hardlink path=usr/share/man/man3/lwres_context.3 target=lwres_context_destroy.3
 hardlink path=usr/share/man/man3/lwres_context_allocmem.3 \
     target=lwres_context_destroy.3
@@ -405,37 +420,41 @@ hardlink path=usr/share/man/man3/lwres_context_nextserial.3 \
     target=lwres_context_destroy.3
 hardlink path=usr/share/man/man3/lwres_context_sendrecv.3 \
     target=lwres_context_destroy.3
-hardlink path=usr/share/man/man3/lwres_endhostent.3 \
-    target=lwres_gethostbyname2.3
+hardlink path=usr/share/man/man3/lwres_endhostent.3 target=lwres_sethostent_r.3
 hardlink path=usr/share/man/man3/lwres_endhostent_r.3 \
-    target=lwres_gethostbyname2.3
-hardlink path=usr/share/man/man3/lwres_freeaddrinfo.3 target=lwres_getaddrinfo.3
+    target=lwres_sethostent_r.3
+file path=usr/share/man/man3/lwres_freeaddrinfo.3
 hardlink path=usr/share/man/man3/lwres_freehostent.3 \
     target=lwres_getipnodebyname.3
-file path=usr/share/man/man3/lwres_gabn.3
-hardlink path=usr/share/man/man3/lwres_gabnrequest_free.3 target=lwres_gabn.3
-hardlink path=usr/share/man/man3/lwres_gabnrequest_parse.3 target=lwres_gabn.3
-hardlink path=usr/share/man/man3/lwres_gabnrequest_render.3 target=lwres_gabn.3
-hardlink path=usr/share/man/man3/lwres_gabnresponse_free.3 target=lwres_gabn.3
-hardlink path=usr/share/man/man3/lwres_gabnresponse_parse.3 target=lwres_gabn.3
-hardlink path=usr/share/man/man3/lwres_gabnresponse_render.3 target=lwres_gabn.3
+hardlink path=usr/share/man/man3/lwres_gabn.3 target=lwres_gabnrequest_parse.3
+hardlink path=usr/share/man/man3/lwres_gabnrequest_free.3 \
+    target=lwres_gabnrequest_parse.3
+file path=usr/share/man/man3/lwres_gabnrequest_parse.3
+hardlink path=usr/share/man/man3/lwres_gabnrequest_render.3 \
+    target=lwres_gabnrequest_parse.3
+hardlink path=usr/share/man/man3/lwres_gabnresponse_free.3 \
+    target=lwres_gabnrequest_parse.3
+hardlink path=usr/share/man/man3/lwres_gabnresponse_parse.3 \
+    target=lwres_gabnrequest_parse.3
+hardlink path=usr/share/man/man3/lwres_gabnresponse_render.3 \
+    target=lwres_gabnrequest_parse.3
 file path=usr/share/man/man3/lwres_gai_strerror.3
-file path=usr/share/man/man3/lwres_getaddrinfo.3
+hardlink path=usr/share/man/man3/lwres_getaddrinfo.3 target=lwres_freeaddrinfo.3
 hardlink path=usr/share/man/man3/lwres_getaddrsbyname.3 \
     target=lwres_getnamebyaddr.3
 hardlink path=usr/share/man/man3/lwres_gethostbyaddr.3 \
-    target=lwres_gethostbyname2.3
+    target=lwres_sethostent_r.3
 hardlink path=usr/share/man/man3/lwres_gethostbyaddr_r.3 \
-    target=lwres_gethostbyname2.3
+    target=lwres_sethostent_r.3
 hardlink path=usr/share/man/man3/lwres_gethostbyname.3 \
-    target=lwres_gethostbyname2.3
-file path=usr/share/man/man3/lwres_gethostbyname2.3
+    target=lwres_sethostent_r.3
+hardlink path=usr/share/man/man3/lwres_gethostbyname2.3 \
+    target=lwres_sethostent_r.3
 hardlink path=usr/share/man/man3/lwres_gethostbyname_r.3 \
-    target=lwres_gethostbyname2.3
-hardlink path=usr/share/man/man3/lwres_gethostent.3 \
-    target=lwres_gethostbyname2.3
+    target=lwres_sethostent_r.3
+hardlink path=usr/share/man/man3/lwres_gethostent.3 target=lwres_sethostent_r.3
 hardlink path=usr/share/man/man3/lwres_gethostent_r.3 \
-    target=lwres_gethostbyname2.3
+    target=lwres_sethostent_r.3
 hardlink path=usr/share/man/man3/lwres_getipnode.3 \
     target=lwres_getipnodebyname.3
 hardlink path=usr/share/man/man3/lwres_getipnodebyaddr.3 \
@@ -444,18 +463,18 @@ file path=usr/share/man/man3/lwres_getipnodebyname.3
 file path=usr/share/man/man3/lwres_getnamebyaddr.3
 file path=usr/share/man/man3/lwres_getnameinfo.3
 file path=usr/share/man/man3/lwres_getrrsetbyname.3
-hardlink path=usr/share/man/man3/lwres_gnba.3 target=lwres_gnbarequest_render.3
+hardlink path=usr/share/man/man3/lwres_gnba.3 target=lwres_gnbaresponse_render.3
 hardlink path=usr/share/man/man3/lwres_gnbarequest_free.3 \
-    target=lwres_gnbarequest_render.3
+    target=lwres_gnbaresponse_render.3
 hardlink path=usr/share/man/man3/lwres_gnbarequest_parse.3 \
-    target=lwres_gnbarequest_render.3
-file path=usr/share/man/man3/lwres_gnbarequest_render.3
+    target=lwres_gnbaresponse_render.3
+hardlink path=usr/share/man/man3/lwres_gnbarequest_render.3 \
+    target=lwres_gnbaresponse_render.3
 hardlink path=usr/share/man/man3/lwres_gnbaresponse_free.3 \
-    target=lwres_gnbarequest_render.3
+    target=lwres_gnbaresponse_render.3
 hardlink path=usr/share/man/man3/lwres_gnbaresponse_parse.3 \
-    target=lwres_gnbarequest_render.3
-hardlink path=usr/share/man/man3/lwres_gnbaresponse_render.3 \
-    target=lwres_gnbarequest_render.3
+    target=lwres_gnbaresponse_render.3
+file path=usr/share/man/man3/lwres_gnbaresponse_render.3
 file path=usr/share/man/man3/lwres_herror.3
 hardlink path=usr/share/man/man3/lwres_hstrerror.3 target=lwres_herror.3
 file path=usr/share/man/man3/lwres_inetntop.3
@@ -463,25 +482,23 @@ hardlink path=usr/share/man/man3/lwres_lwpacket_parseheader.3 \
     target=lwres_lwpacket_renderheader.3
 file path=usr/share/man/man3/lwres_lwpacket_renderheader.3
 hardlink path=usr/share/man/man3/lwres_net_ntop.3 target=lwres_inetntop.3
-hardlink path=usr/share/man/man3/lwres_noop.3 target=lwres_noopresponse_parse.3
+hardlink path=usr/share/man/man3/lwres_noop.3 target=lwres_noopresponse_render.3
 hardlink path=usr/share/man/man3/lwres_nooprequest_free.3 \
-    target=lwres_noopresponse_parse.3
+    target=lwres_noopresponse_render.3
 hardlink path=usr/share/man/man3/lwres_nooprequest_parse.3 \
-    target=lwres_noopresponse_parse.3
+    target=lwres_noopresponse_render.3
 hardlink path=usr/share/man/man3/lwres_nooprequest_render.3 \
-    target=lwres_noopresponse_parse.3
+    target=lwres_noopresponse_render.3
 hardlink path=usr/share/man/man3/lwres_noopresponse_free.3 \
-    target=lwres_noopresponse_parse.3
-file path=usr/share/man/man3/lwres_noopresponse_parse.3
-hardlink path=usr/share/man/man3/lwres_noopresponse_render.3 \
-    target=lwres_noopresponse_parse.3
+    target=lwres_noopresponse_render.3
+hardlink path=usr/share/man/man3/lwres_noopresponse_parse.3 \
+    target=lwres_noopresponse_render.3
+file path=usr/share/man/man3/lwres_noopresponse_render.3
 hardlink path=usr/share/man/man3/lwres_packet.3 \
     target=lwres_lwpacket_renderheader.3
 hardlink path=usr/share/man/man3/lwres_resutil.3 target=lwres_getnamebyaddr.3
-hardlink path=usr/share/man/man3/lwres_sethostent.3 \
-    target=lwres_gethostbyname2.3
-hardlink path=usr/share/man/man3/lwres_sethostent_r.3 \
-    target=lwres_gethostbyname2.3
+hardlink path=usr/share/man/man3/lwres_sethostent.3 target=lwres_sethostent_r.3
+file path=usr/share/man/man3/lwres_sethostent_r.3
 hardlink path=usr/share/man/man3/lwres_string_parse.3 \
     target=lwres_getnamebyaddr.3
 file path=usr/share/man/man5/named.conf.5
@@ -493,6 +510,7 @@ file path=usr/share/man/man8/dnssec-dsfromkey.8
 file path=usr/share/man/man8/dnssec-importkey.8
 file path=usr/share/man/man8/dnssec-keyfromlabel.8
 file path=usr/share/man/man8/dnssec-keygen.8
+file path=usr/share/man/man8/dnssec-keymgr.8
 file path=usr/share/man/man8/dnssec-revoke.8
 file path=usr/share/man/man8/dnssec-settime.8
 file path=usr/share/man/man8/dnssec-signzone.8

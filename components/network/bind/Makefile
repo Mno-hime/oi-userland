@@ -18,29 +18,38 @@
 #
 # CDDL HEADER END
 #
-# Copyright (c) 2011, 2013, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2019, Michal Nowak
 #
+
+PREFERRED_BITS=		64
+
 include ../../../make-rules/shared-macros.mk
 
+# Component information, used for download and packaging.
+# -------------------------------------------------------
+# BIND version encoding within IPS, our rule is:
+#   BIND <x>.<y>.<z>        =>   IPS <x>.<y>.<z>.0.<s>
+#   BIND <x>.<y>.<z>-P<n>   =>   IPS <x>.<y>.<z>.<n>.<s>
+# <s> is for Solaris specific modifications as necessary.
 COMPONENT_NAME=		bind
-COMPONENT_VERSION=	9.10.6-P1
-COMPONENT_REVISION=	1
-IPS_COMPONENT_VERSION=	9.10.6.1
+COMPONENT_VERSION=	9.11.7
+IPS_COMPONENT_VERSION=	9.11.7.0.0
+HUMAN_VERSION=		$(COMPONENT_VERSION)
 COMPONENT_SRC=		$(COMPONENT_NAME)-$(COMPONENT_VERSION)
 COMPONENT_ARCHIVE=	$(COMPONENT_SRC).tar.gz
 COMPONENT_PROJECT_URL=	http://www.isc.org/software/bind/
 COMPONENT_ARCHIVE_HASH=	 \
-	sha256:9b8b4f6ecfc82a491774bf713d8a888b954c427526035eb715544438f36a2334
+	sha256:5b9e86dc5711a1a7448356c02ddb23bb1dd78c9e02a69f9b2e2ce31d39f5a0fd
 COMPONENT_ARCHIVE_URL=	\
 	http://ftp.isc.org/isc/bind9/$(COMPONENT_VERSION)/$(COMPONENT_ARCHIVE)
-COMPONENT_BUGDB=	service/dns-server
 
 include $(WS_MAKE_RULES)/prep.mk
 include $(WS_MAKE_RULES)/configure.mk
 include $(WS_MAKE_RULES)/ips.mk
 
 # We don't need -m32 for 32-bit builds, especially when it is passed to ld
-LD_BITS=
+#LD_BITS=
 
 # Missing files in build dir without this.
 COMPONENT_PRE_CONFIGURE_ACTION =	($(CLONEY) $(SOURCE_DIR) $(@D))
@@ -52,7 +61,7 @@ COMPONENT_PRE_CONFIGURE_ACTION =	($(CLONEY) $(SOURCE_DIR) $(@D))
 # pathnames.
 
 # DNS libraries are in usr/lib/dns - Override settings from configure.mk
-CONFIGURE_LIBDIR.32 =	$(CONFIGURE_PREFIX)/lib/dns
+#CONFIGURE_LIBDIR.32 =	$(CONFIGURE_PREFIX)/lib/dns
 
 CONFIGURE_OPTIONS +=	--with-libtool
 CONFIGURE_OPTIONS +=	--sysconfdir=/etc
@@ -77,7 +86,7 @@ COMPONENT_INSTALL_ENV += PYTHON_VENDOR_DIR=$(PYTHON_VENDOR_PACKAGES)
 ASLR_MODE = $(ASLR_ENABLE)
 
 .PHONY: build
-build:		$(BUILD_32)
+build:		$(BUILD_64)
 
 include $(WS_TOP)/make-rules/shared-targets.mk
 
@@ -94,7 +103,7 @@ include $(WS_TOP)/make-rules/shared-targets.mk
 # (p5m) file.
 
 .PHONY: install
-install: $(INSTALL_32)
+install: $(INSTALL_64)
 
 # Testing.
 #
@@ -125,22 +134,22 @@ summarize=	'\
 isc_ifconfig=	./bin/tests/system/ifconfig.sh
 
 .PHONY: test
-test: build $(TEST_32)
+test: build $(TEST_64)
 
 # fulltest requires sufficient privileges to configures IP addresses
 # 10.53.0.1 through 10.53.0.5 as aliases on the loopback interface.
-FULL_TEST_32=	$(TEST_32:%=%_FULL)
+FULL_TEST_64=	$(TEST_64:%=%_FULL)
 
 .PHONY: fulltest
-fulltest: build $(FULL_TEST_32)
+fulltest: build $(FULL_TEST_64)
 
-$(FULL_TEST_32):
+$(FULL_TEST_64):
 	cd $(COMPONENT_SRC) && $(SHELL)  $(isc_ifconfig) up
 	-cd $(@D) && $(MAKE) test 2>&1 | $(TEE) $@
 	cd $(COMPONENT_SRC) && $(SHELL) $(isc_ifconfig) down
 	$(NAWK) $(summarize) $@
 
-$(TEST_32):
+$(TEST_64):
 	-cd $(@D) && $(MAKE) test 2>&1 | $(TEE) $@
 	$(NAWK) $(summarize) $@
 
@@ -148,7 +157,7 @@ $(TEST_32):
 # test-clean to remove previous tests.
 .PHONY: test-summary
 test-summary:
-	@for file in $(TEST_32)*; do \
+	@for file in $(TEST_64)*; do \
 		if [ -f $$file ]; then \
 			echo 'Summary for' $$file;\
 			$(NAWK) $(summarize) $$file;\
@@ -157,13 +166,13 @@ test-summary:
 
 .PHONY: test-version
 test-version:
-	@echo;echo 32 bit version
-	-LD_LIBRARY_PATH=$(PROTO_DIR)$(CONFIGURE_LIBDIR.32) \
-		$(PROTO_DIR)$(CONFIGURE_BINDIR.32)/named -V
+	@echo;echo 64 bit version
+	-LD_LIBRARY_PATH=$(PROTO_DIR)$(CONFIGURE_LIBDIR.64) \
+		$(PROTO_DIR)$(CONFIGURE_BINDIR.64)/named -V
 
 .PHONY: test-clean
 test-clean:
-	$(RM) $(TEST_32) $(FULL_TEST_32)
+	$(RM) $(TEST_64) $(FULL_TEST_64)
 
 REQUIRED_PACKAGES += library/json-c
 REQUIRED_PACKAGES += library/libedit
