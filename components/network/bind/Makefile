@@ -26,16 +26,8 @@ PREFERRED_BITS=		64
 
 include ../../../make-rules/shared-macros.mk
 
-# Component information, used for download and packaging.
-# -------------------------------------------------------
-# BIND version encoding within IPS, our rule is:
-#   BIND <x>.<y>.<z>        =>   IPS <x>.<y>.<z>.0.<s>
-#   BIND <x>.<y>.<z>-P<n>   =>   IPS <x>.<y>.<z>.<n>.<s>
-# <s> is for Solaris specific modifications as necessary.
 COMPONENT_NAME=		bind
 COMPONENT_VERSION=	9.11.7
-IPS_COMPONENT_VERSION=	9.11.7.0.0
-HUMAN_VERSION=		$(COMPONENT_VERSION)
 COMPONENT_SRC=		$(COMPONENT_NAME)-$(COMPONENT_VERSION)
 COMPONENT_ARCHIVE=	$(COMPONENT_SRC).tar.gz
 COMPONENT_PROJECT_URL=	http://www.isc.org/software/bind/
@@ -48,8 +40,12 @@ include $(WS_MAKE_RULES)/prep.mk
 include $(WS_MAKE_RULES)/configure.mk
 include $(WS_MAKE_RULES)/ips.mk
 
+#PATH=$(PATH.gnu)
+
+CFLAGS +=		-I/usr/include/idn2
+
 # We don't need -m32 for 32-bit builds, especially when it is passed to ld
-#LD_BITS=
+LD_BITS=
 
 # Missing files in build dir without this.
 COMPONENT_PRE_CONFIGURE_ACTION =	($(CLONEY) $(SOURCE_DIR) $(@D))
@@ -61,17 +57,26 @@ COMPONENT_PRE_CONFIGURE_ACTION =	($(CLONEY) $(SOURCE_DIR) $(@D))
 # pathnames.
 
 # DNS libraries are in usr/lib/dns - Override settings from configure.mk
-#CONFIGURE_LIBDIR.32 =	$(CONFIGURE_PREFIX)/lib/dns
+CONFIGURE_LIBDIR =	$(CONFIGURE_PREFIX)/lib/dns
 
 CONFIGURE_OPTIONS +=	--with-libtool
+CONFIGURE_OPTIONS +=	--with-pic
+CONFIGURE_OPTIONS +=	--disable-static
+CONFIGURE_OPTIONS +=	--enable-shared
+CONFIGURE_OPTIONS +=	--without-python
+CONFIGURE_OPTIONS +=	--disable-getifaddrs
+#CONFIGURE_OPTIONS +=	
 CONFIGURE_OPTIONS +=	--sysconfdir=/etc
 CONFIGURE_OPTIONS +=	--localstatedir=/var
 CONFIGURE_OPTIONS +=	--with-openssl
 CONFIGURE_OPTIONS +=	--enable-threads=yes
+CONFIGURE_OPTIONS +=	--enable-ipv6
 CONFIGURE_OPTIONS +=	--enable-devpoll=yes
-CONFIGURE_OPTIONS +=	--disable-openssl-version-check
 CONFIGURE_OPTIONS +=	--enable-fixed-rrset
-CONFIGURE_OPTIONS +=	--with-pkcs11
+CONFIGURE_OPTIONS +=	--enable-native-pkcs11
+CONFIGURE_OPTIONS +=	--with-pkcs11=/usr/lib/amd64/softhsm/libsofthsm2.so
+CONFIGURE_OPTIONS +=	--with-libidn2=yes
+CONFIGURE_OPTIONS +=	--with-geoip
 # Bind configure will check for libxml2 versions 2.6.x/2.7.x/2.8.x.
 # To make it use version 2.9.x we need to skip this check by
 # specifying path where libxml2 is installed.
@@ -88,7 +93,7 @@ ASLR_MODE = $(ASLR_ENABLE)
 .PHONY: build
 build:		$(BUILD_64)
 
-include $(WS_TOP)/make-rules/shared-targets.mk
+include $(WS_MAKE_RULES)/shared-targets.mk
 
 # Install.
 #
