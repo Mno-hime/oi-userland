@@ -12,27 +12,28 @@
 #
 # Copyright 2011 EveryCity Ltd. All rights reserved.
 # Copyright 2012, Piotr Jasiukajtis
+# Copyright 2019, Michal Nowak
 #
 
 include ../../../make-rules/shared-macros.mk
 
-PATH=	/opt/onbld/bin/i386:/usr/bin:/usr/sbin:/sbin:/usr/gnu/bin
 COMPONENT_NAME=		illumos-kvm-cmd
-COMPONENT_VERSION=	c1a197c8e4582c68739ab08f7e3198b2392c9820
-COMPONENT_REVISION=	2
-IPS_COMPONENT_VERSION=	0.0.1.20160303
+COMPONENT_VERSION=	1e9a87038f5bc0a65a32da476e324864c23fcc8d
+IPS_COMPONENT_VERSION=	0.0.1.20190402
 COMPONENT_SRC=		illumos-kvm-cmd-$(COMPONENT_VERSION)
 COMPONENT_ARCHIVE=	$(COMPONENT_SRC).zip
-COMPONENT_ARCHIVE_HASH=	sha256:463cc37688c6089a8107e164e65107b54671daf7afac36353524925ffd09346f
+COMPONENT_ARCHIVE_HASH=	sha256:25b397a9e58973a9d7403c2e842f97badb24b592f09b78a573aa9f75f1aced8e
 COMPONENT_ARCHIVE_URL=	https://github.com/joyent/illumos-kvm-cmd/archive/$(COMPONENT_VERSION).zip
 
 ifeq ($(MACH), sparc)
-PUBLISH_STAMP=
+	PUBLISH_STAMP=
 endif
 
-include $(WS_TOP)/make-rules/prep.mk
-include $(WS_TOP)/make-rules/configure.mk
-include $(WS_TOP)/make-rules/ips.mk
+include $(WS_MAKE_RULES)/prep.mk
+include $(WS_MAKE_RULES)/configure.mk
+include $(WS_MAKE_RULES)/ips.mk
+
+PATH=/opt/onbld/bin/i386:/usr/bin:/usr/sbin:/sbin:/usr/gnu/bin
 
 CC=/opt/gcc/4.4.4/bin/gcc
 
@@ -44,8 +45,6 @@ COMPONENT_PREP_ACTION = \
 
 COMPONENT_PRE_CONFIGURE_ACTION = \
 	$(CLONEY) $(SOURCE_DIR) $(@D)
-
-CONFIGURE_ENV += PATH=$(PATH):/usr/sbin
 
 CONFIGURE_OPTIONS = --cc=$(CC)
 CONFIGURE_OPTIONS += --extra-cflags="-fno-builtin -msave-args"
@@ -69,9 +68,9 @@ CONFIGURE_OPTIONS += --enable-trace-backend=dtrace
 CONFIGURE_OPTIONS += --target-list="i386-softmmu x86_64-softmmu"
 CONFIGURE_OPTIONS += --enable-debug
 
-COMPONENT_BUILD_ENV += PATH=$(PATH):/usr/sbin CTFCONVERT=/opt/onbld/bin/i386/ctfconvert CTFMERGE=/opt/onbld/bin/i386/ctfmerge
+COMPONENT_BUILD_ENV += CTFCONVERT=/opt/onbld/bin/i386/ctfconvert CTFMERGE=/opt/onbld/bin/i386/ctfmerge
 
-COMPONENT_INSTALL_ENV += PATH=$(PATH):/usr/sbin CTFCONVERT=/opt/onbld/bin/i386/ctfconvert CTFMERGE=/opt/onbld/bin/i386/ctfmerge
+COMPONENT_INSTALL_ENV += CTFCONVERT=/opt/onbld/bin/i386/ctfconvert CTFMERGE=/opt/onbld/bin/i386/ctfmerge
 
 build_sparc:
 	@echo "Not available."
