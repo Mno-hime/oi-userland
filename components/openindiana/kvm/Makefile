@@ -14,7 +14,7 @@
 # Copyright 2011, Alasdair Lumsden <alasdairrr@gmail.com>
 # Copyright 2012, Piotr Jasiukajtis
 # Copyright 2012, Jon Tibble
-# Copyright 2018, Michal Nowak
+# Copyright 2019, Michal Nowak
 #
 
 include ../../../make-rules/shared-macros.mk
@@ -22,7 +22,7 @@ include ../../../make-rules/shared-macros.mk
 COMPONENT_NAME=		illumos-kvm
 COMPONENT_VERSION=	a8befd521c7e673749c64f118585814009fe4b73
 IPS_COMPONENT_VERSION=	0.0.1.20160303
-COMPONENT_REVISION=	3
+COMPONENT_REVISION=	4
 COMPONENT_SRC=		illumos-kvm-$(COMPONENT_VERSION)
 COMPONENT_ARCHIVE=	$(COMPONENT_SRC).zip
 COMPONENT_ARCHIVE_HASH=	sha256:47ac565293ff1c57c7bcfab9189ee998a85599e959640b6c1e364aab8a1a70eb
@@ -32,9 +32,9 @@ ifeq ($(MACH), sparc)
 PUBLISH_STAMP=
 endif
 
-include $(WS_TOP)/make-rules/prep.mk
-include $(WS_TOP)/make-rules/justmake.mk
-include $(WS_TOP)/make-rules/ips.mk
+include $(WS_MAKE_RULES)/prep.mk
+include $(WS_MAKE_RULES)/justmake.mk
+include $(WS_MAKE_RULES)/ips.mk
 
 COMPONENT_PRE_CONFIGURE_ACTION = \
 	$(CLONEY) $(SOURCE_DIR) $(@D)
@@ -62,3 +62,6 @@ install_sparc:
 install_i386:	$(INSTALL_32)
 
 install:	install_$(MACH)
+
+# Auto-generated dependencies
+REQUIRED_PACKAGES += system/library
