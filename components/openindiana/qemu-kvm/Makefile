@@ -20,13 +20,14 @@ include ../../../make-rules/shared-macros.mk
 COMPONENT_NAME=		illumos-kvm-cmd
 COMPONENT_VERSION=	1e9a87038f5bc0a65a32da476e324864c23fcc8d
 IPS_COMPONENT_VERSION=	0.0.1.20190402
+COMPONENT_FMRI=		system/qemu/kvm
 COMPONENT_SRC=		illumos-kvm-cmd-$(COMPONENT_VERSION)
 COMPONENT_ARCHIVE=	$(COMPONENT_SRC).zip
 COMPONENT_ARCHIVE_HASH=	sha256:25b397a9e58973a9d7403c2e842f97badb24b592f09b78a573aa9f75f1aced8e
 COMPONENT_ARCHIVE_URL=	https://github.com/joyent/illumos-kvm-cmd/archive/$(COMPONENT_VERSION).zip
 
 ifeq ($(MACH), sparc)
-	PUBLISH_STAMP=
+PUBLISH_STAMP=
 endif
 
 include $(WS_MAKE_RULES)/prep.mk
@@ -46,7 +47,7 @@ COMPONENT_PREP_ACTION = \
 COMPONENT_PRE_CONFIGURE_ACTION = \
 	$(CLONEY) $(SOURCE_DIR) $(@D)
 
-CONFIGURE_OPTIONS = --cc=$(CC)
+CONFIGURE_OPTIONS =  --cc=$(CC)
 CONFIGURE_OPTIONS += --extra-cflags="-fno-builtin -msave-args"
 CONFIGURE_OPTIONS += --extra-ldflags="-nodefaultlibs -lz -lm -lc"
 CONFIGURE_OPTIONS += --prefix=/usr
@@ -86,6 +87,9 @@ install_i386:	$(INSTALL_64)
 
 install:	install_$(MACH)
 
+test:		$(NO_TESTS)
+
+# Auto-generated dependencies
 REQUIRED_PACKAGES += image/library/libpng16
 REQUIRED_PACKAGES += library/sdl
 REQUIRED_PACKAGES += library/zlib
