@@ -89,6 +89,7 @@ install:	install_$(MACH)
 
 test:		$(NO_TESTS)
 
+REQUIRED_PACKAGES += driver/network/bpf
 # Auto-generated dependencies
 REQUIRED_PACKAGES += image/library/libpng16
 REQUIRED_PACKAGES += library/sdl
