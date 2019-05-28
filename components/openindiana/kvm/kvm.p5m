@@ -13,11 +13,12 @@
 # Copyright 2011, Andrzej Szeszo
 # Copyright 2011, Alasdair Lumsden <alasdairrr@gmail.com>
 # Copyright 2012, Jon Tibble
+# Copyright 2019, Michal Nowak
 #
 
 <transform file dir path=.* -> default group sys>
 
-set name=pkg.fmri value=pkg:/driver/i86pc/kvm@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
+set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
 set name=pkg.summary value="Kernel-based Virtual Machine hardware virtualisation system (requires Intel VT extension)"
 set name=info.classification value="org.opensolaris.category.2008:System/Virtualization"
 set name=info.upstream-url value=https://github.com/joyent/illumos-kvm
@@ -26,19 +27,9 @@ set name=org.opensolaris.consolidation value=$(CONSOLIDATION)
 
 license COPYING.linux license="GPLv2"
 
-dir  path=usr
-dir  path=usr/kernel
-dir  path=usr/kernel/drv
-dir  path=usr/kernel/drv/$(MACH64)
+driver name=kvm
+
 file path=usr/kernel/drv/$(MACH64)/kvm
 file path=usr/kernel/drv/kvm.conf
-dir  path=usr/lib group=bin
-dir  path=usr/lib/devfsadm
-dir  path=usr/lib/devfsadm/linkmod
 file path=usr/lib/devfsadm/linkmod/JOY_kvm_link.so
-dir  path=usr/lib/mdb
-dir  path=usr/lib/mdb/kvm
-dir  path=usr/lib/mdb/kvm/$(MACH64)
 file path=usr/lib/mdb/kvm/$(MACH64)/kvm.so
-
-driver name=kvm
