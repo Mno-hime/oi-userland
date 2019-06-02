@@ -19,8 +19,8 @@ COMPONENT_NAME=		illumos-gate
 COMPONENT_SRC=		$(COMPONENT_NAME)
 
 GIT=git
-GIT_REPO=git://github.com/illumos/illumos-gate.git
-GIT_BRANCH=master
+GIT_REPO=file:///export/home/newman/ws/illumos-gate
+GIT_BRANCH=mandoc_1.14.5_cvs
 GIT_CHANGESET=HEAD
 
 FETCH=$(WS_TOOLS)/userland-fetch
