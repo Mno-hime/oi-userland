@@ -21,14 +21,14 @@ PREFERRED_BITS=		64
 include ../../../make-rules/shared-macros.mk
 
 COMPONENT_NAME=		firefox
-IPS_COMPONENT_VERSION=	67.0
+IPS_COMPONENT_VERSION=	67.0.1
 COMPONENT_VERSION=	$(IPS_COMPONENT_VERSION)
 #COMPONENT_VERSION=	$(IPS_COMPONENT_VERSION)esr
 COMPONENT_SUMMARY= 	Mozilla Firefox Web browser
 COMPONENT_SRC= 		$(COMPONENT_NAME)-$(IPS_COMPONENT_VERSION)
 COMPONENT_ARCHIVE= 	$(COMPONENT_NAME)-$(COMPONENT_VERSION).source.tar.xz
 COMPONENT_ARCHIVE_HASH= \
-	sha256:2cb937db00e35162393aa5b65d1f2280be1e62d5ee33d3e9997cccba542d791b
+	sha256:d4c68b1220e82129ac12520b8020f669a352669dd55c628994b72269418539b2
 ifdef CANDIDATE_BUILD
 COMPONENT_ARCHIVE_URL= \
 	https://ftp.mozilla.org/pub/firefox/candidates/$(COMPONENT_VERSION)-candidates/build$(CANDIDATE_BUILD)/source/$(COMPONENT_ARCHIVE)
@@ -77,7 +77,8 @@ CONFIGURE_OPTIONS +=	--disable-debug-symbols
 CONFIGURE_OPTIONS +=	--enable-update-channel=release
 #CONFIGURE_OPTIONS +=	--enable-update-channel=esr
 CONFIGURE_OPTIONS +=	--disable-tests
-CONFIGURE_OPTIONS +=	--disable-jemalloc
+CONFIGURE_OPTIONS +=	--enable-jemalloc
+CONFIGURE_OPTIONS +=	--enable-replace-malloc
 CONFIGURE_OPTIONS +=	--enable-optimize="-O2 -fno-schedule-insns2 -fno-lifetime-dse -fno-delete-null-pointer-checks"
 #CONFIGURE_OPTIONS +=	--enable-optimize="-O2 -fno-schedule-insns2 -fno-lifetime-dse -fno-delete-null-pointer-checks -Wno-sign-compare"
 CONFIGURE_OPTIONS +=	--disable-dtrace
@@ -144,6 +145,7 @@ COMPONENT_POST_INSTALL_ACTION  = \
 install: $(INSTALL_64)
 
 # Build dependencies
+REQUIRED_PACKAGES += developer/assembler/nasm
 REQUIRED_PACKAGES += developer/build/autoconf-213
 REQUIRED_PACKAGES += developer/clang-40
 REQUIRED_PACKAGES += developer/lang/rustc
