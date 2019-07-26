@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright 2017 <contributor>
+# Copyright 2018 <contributor>
 #
 
 set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
@@ -30,6 +30,7 @@ file path=usr/share/poppler/cMap/Adobe-CNS1/Adobe-CNS1-3
 file path=usr/share/poppler/cMap/Adobe-CNS1/Adobe-CNS1-4
 file path=usr/share/poppler/cMap/Adobe-CNS1/Adobe-CNS1-5
 file path=usr/share/poppler/cMap/Adobe-CNS1/Adobe-CNS1-6
+file path=usr/share/poppler/cMap/Adobe-CNS1/Adobe-CNS1-7
 file path=usr/share/poppler/cMap/Adobe-CNS1/Adobe-CNS1-B5pc
 file path=usr/share/poppler/cMap/Adobe-CNS1/Adobe-CNS1-ETen-B5
 file path=usr/share/poppler/cMap/Adobe-CNS1/Adobe-CNS1-H-CID
