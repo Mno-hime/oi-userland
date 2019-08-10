@@ -1,6 +1,6 @@
---- pcs-0.9.159/pcs/lib/test/test_resource_agent.py.orig	2017-09-22 17:13:01.563005951 +0000
-+++ pcs-0.9.159/pcs/lib/test/test_resource_agent.py	2017-09-22 17:15:10.869389866 +0000
-@@ -1449,7 +1449,7 @@
+--- pcs-0.9.168/pcs/lib/test/test_resource_agent.py.~1~	2019-08-02 08:12:11.000000000 +0000
++++ pcs-0.9.168/pcs/lib/test/test_resource_agent.py	2019-08-10 18:07:39.944580395 +0000
+@@ -1506,7 +1506,7 @@ class StonithdMetadataGetMetadataTest(Te
          )
  
          self.mock_runner.run.assert_called_once_with(
@@ -9,7 +9,7 @@
          )
  
      def test_failed_to_get_xml(self):
-@@ -1465,7 +1465,7 @@
+@@ -1522,7 +1522,7 @@ class StonithdMetadataGetMetadataTest(Te
          )
  
          self.mock_runner.run.assert_called_once_with(
@@ -18,7 +18,7 @@
          )
  
      def test_invalid_xml(self):
-@@ -1481,7 +1481,7 @@
+@@ -1538,7 +1538,7 @@ class StonithdMetadataGetMetadataTest(Te
          )
  
          self.mock_runner.run.assert_called_once_with(
@@ -27,7 +27,7 @@
          )
  
  
-@@ -1832,7 +1832,7 @@
+@@ -1897,7 +1897,7 @@ class StonithAgentMetadataGetParametersT
                   }
              ),
              mock.call(
@@ -36,10 +36,10 @@
              ),
          ])
  
---- pcs-0.9.159/pcs/settings_default.py.orig	2017-09-22 17:19:19.007300050 +0000
-+++ pcs-0.9.159/pcs/settings_default.py	2017-09-22 17:19:48.370664539 +0000
-@@ -23,10 +23,10 @@
- pacemaker_authkey_file = "/etc/pacemaker/authkey"
+--- pcs-0.9.168/pcs/settings_default.py	2019-08-02 08:12:11.000000000 +0000
++++ pcs-0.9.168/pcs/settings_default.py.new	2019-08-10 18:06:58.280729594 +0000
+@@ -25,10 +25,10 @@ pacemaker_authkey_file = "/etc/pacemaker
+ booth_authkey_file_mode = 0o600
  cluster_conf_file = "/etc/cluster/cluster.conf"
  fence_agent_binaries = "/usr/sbin/"
 -pengine_binary = "/usr/libexec/pacemaker/pengine"
@@ -50,7 +50,7 @@
 +crmd_binary = "/usr/lib/pacemaker/crmd"
 +cib_binary = "/usr/lib/pacemaker/cib"
 +stonithd_binary = "/usr/lib/pacemaker/stonithd"
- pcs_version = "0.9.159"
+ pcs_version = "0.9.168"
  crm_report = pacemaker_binaries + "crm_report"
  crm_verify = pacemaker_binaries + "crm_verify"
 --- pcs-0.9.159/pcsd/settings.rb.orig	2017-09-22 17:19:31.985029048 +0000

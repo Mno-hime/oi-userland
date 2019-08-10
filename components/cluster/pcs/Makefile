@@ -15,14 +15,14 @@
 include ../../../make-rules/shared-macros.mk
 
 COMPONENT_NAME= pcs
-COMPONENT_VERSION= 0.9.159
+COMPONENT_VERSION= 0.9.168
 COMPONENT_REVISION= 1
 COMPONENT_FMRI= application/cluster/$(COMPONENT_NAME)
 COMPONENT_CLASSIFICATION= System/Shells
 COMPONENT_PROJECT_URL= https://github.com/ClusterLabs/pcs
 COMPONENT_SRC= $(COMPONENT_NAME)-$(COMPONENT_VERSION)
 COMPONENT_ARCHIVE= $(COMPONENT_SRC).tar.gz
-COMPONENT_ARCHIVE_HASH= sha256:9493c780c36a7f4a8336bbe40ff34ec22e21155798ad458bd8b347a4bc774f8f
+COMPONENT_ARCHIVE_HASH= sha256:f1f3684978e13f2bd95a5fbd5d662a3f7b30908969addbb3559152b2791efc19
 COMPONENT_ARCHIVE_URL= https://github.com/ClusterLabs/$(COMPONENT_NAME)/archive/$(COMPONENT_VERSION).tar.gz 
 COMPONENT_LICENSE= GPLv2
 COMPONENT_SUMMARY= Pacemaker command line interface and GUI.
@@ -51,16 +51,12 @@ PKG_MACROS += RUBY_LIB_VERSION=$(RUBY_LIB_VERSION)
 # Ugly hack to avoid fail on second install
 COMPONENT_PRE_BUILD_ACTION = ($(RM) -r $(PROTO_DIR))
 
-COMPONENT_POST_BUILD_ACTION=( \
-    $(MKDIR)  $(PROTO_DIR)/usr/share/pcs/examples; \
-    $(MV) $(PROTO_DIR)/etc/logrotate.d    $(PROTO_DIR)/usr/share/pcs/examples )
-
-# pytthon installation class overwrites the shebang during installation
+# python installation class overwrites the shebang during installation
 $(INSTALL_32):  $(BUILD_32)
 		grep -q python2.7 ${PROTO_DIR}/usr/sbin/pcs || \
 		gsed -i -- "s~/usr/bin/python~/usr/bin/python2.7~g" ${PROTO_DIR}/usr/sbin/pcs
 
-# beware of: the package has a combined build + install 
+# beware: the package has a combined build + install
 build:          $(BUILD_32)
 
 install:        $(INSTALL_32)
