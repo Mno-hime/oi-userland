@@ -1,0 +1,30 @@
+libfilezilla-0.18.0/lib/string.cpp:357:17: error: 'wcsnrtombs' was not declared in this scope
+
+--- libfilezilla-0.18.0/lib/string.cpp	2019-06-17 15:31:43.000000000 +0000
++++ libfilezilla-0.18.0/lib/string.cpp.new	2019-08-10 20:21:46.388961345 +0000
+@@ -7,6 +7,7 @@
+ #else
+ #include <iconv.h>
+ #include <strings.h>
++#include <wchar.h>
+ 
+ #include <type_traits>
+ #endif
+@@ -355,7 +355,7 @@ std::string to_string(std::wstring_view
+ 
+ 			std::mbstate_t ps{};
+ 			wchar_t const* in_p = in.data() + start;
+-			size_t len = wcsnrtombs(nullptr, &in_p, inlen, 0, &ps);
++			size_t len = std::wcsnrtombs(nullptr, &in_p, inlen, 0, &ps);
+ 			if (len != static_cast<size_t>(-1)) {
+ 				size_t old = ret.size();
+ 				if (start) {
+@@ -365,7 +365,7 @@ std::string to_string(std::wstring_view
+ 				char* out_p = &ret[old];
+ 
+ 				in_p = in.data() + start; // Some implementations of wcsrtombs change src even on null dst
+-				wcsnrtombs(out_p, &in_p, inlen, len, &ps);
++				std::wcsnrtombs(out_p, &in_p, inlen, len, &ps);
+ 			}
+ 			else {
+ 				ret.clear();

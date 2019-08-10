@@ -1,0 +1,118 @@
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright 2019 Michal Nowak
+#
+
+set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
+set name=pkg.summary value="$(COMPONENT_SUMMARY)"
+set name=info.classification value="$(COMPONENT_CLASSIFICATION)"
+set name=info.upstream-url value=$(COMPONENT_PROJECT_URL)
+set name=info.source-url value=$(COMPONENT_ARCHIVE_URL)
+set name=org.opensolaris.consolidation value=$(CONSOLIDATION)
+
+license $(COMPONENT_LICENSE_FILE) license='$(COMPONENT_LICENSE)'
+
+file path=usr/include/libfilezilla/apply.hpp
+file path=usr/include/libfilezilla/buffer.hpp
+file path=usr/include/libfilezilla/encode.hpp
+file path=usr/include/libfilezilla/encryption.hpp
+file path=usr/include/libfilezilla/event.hpp
+file path=usr/include/libfilezilla/event_handler.hpp
+file path=usr/include/libfilezilla/event_loop.hpp
+file path=usr/include/libfilezilla/file.hpp
+file path=usr/include/libfilezilla/format.hpp
+file path=usr/include/libfilezilla/glue/unix.hpp
+file path=usr/include/libfilezilla/glue/wx.hpp
+file path=usr/include/libfilezilla/hash.hpp
+file path=usr/include/libfilezilla/iputils.hpp
+file path=usr/include/libfilezilla/libfilezilla.hpp
+file path=usr/include/libfilezilla/local_filesys.hpp
+file path=usr/include/libfilezilla/logger.hpp
+file path=usr/include/libfilezilla/mutex.hpp
+file path=usr/include/libfilezilla/optional.hpp
+file path=usr/include/libfilezilla/private/defs.hpp
+file path=usr/include/libfilezilla/private/visibility.hpp
+file path=usr/include/libfilezilla/private/windows.hpp
+file path=usr/include/libfilezilla/process.hpp
+file path=usr/include/libfilezilla/recursive_remove.hpp
+file path=usr/include/libfilezilla/shared.hpp
+file path=usr/include/libfilezilla/signature.hpp
+file path=usr/include/libfilezilla/socket.hpp
+file path=usr/include/libfilezilla/string.hpp
+file path=usr/include/libfilezilla/thread.hpp
+file path=usr/include/libfilezilla/thread_pool.hpp
+file path=usr/include/libfilezilla/time.hpp
+file path=usr/include/libfilezilla/tls_info.hpp
+file path=usr/include/libfilezilla/tls_layer.hpp
+file path=usr/include/libfilezilla/tls_system_trust_store.hpp
+file path=usr/include/libfilezilla/translate.hpp
+file path=usr/include/libfilezilla/uri.hpp
+file path=usr/include/libfilezilla/util.hpp
+link path=usr/lib/$(MACH64)/libfilezilla.so target=libfilezilla.so.0.0.0
+link path=usr/lib/$(MACH64)/libfilezilla.so.0 target=libfilezilla.so.0.0.0
+file path=usr/lib/$(MACH64)/libfilezilla.so.0.0.0
+file path=usr/lib/$(MACH64)/pkgconfig/libfilezilla.pc
+file path=usr/share/locale/an/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/ar/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/az/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/bg_BG/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/ca/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/ca_ES@valencia/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/co/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/cs_CZ/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/cy/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/da/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/de/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/el/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/es/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/et/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/eu/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/fa_IR/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/fi_FI/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/fr/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/gl_ES/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/he_IL/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/hr/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/hu_HU/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/hy/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/id_ID/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/is/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/it/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/ja_JP/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/kab/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/ko_KR/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/ky/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/lo_LA/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/lt_LT/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/lv_LV/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/mk_MK/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/nb_NO/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/ne/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/nl/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/nn_NO/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/oc/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/pl_PL/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/pt_BR/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/pt_PT/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/ro_RO/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/ru/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/sk_SK/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/sl_SI/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/sr/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/sv/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/th_TH/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/tr/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/uk_UA/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/vi_VN/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/zh_CN/LC_MESSAGES/libfilezilla.mo
+file path=usr/share/locale/zh_TW/LC_MESSAGES/libfilezilla.mo
