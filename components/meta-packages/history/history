@@ -532,7 +532,7 @@ desktop/avant-window-navigator@0.3.2.1,5.11-2017.0.0.3
 desktop/calculator/gcalctool@5.30.2-2018.0.0.1
 desktop/compiz/library/compizconfig-gconf@0.8.8,5.11-2018.0.0.2
 desktop/compiz/library/g++/libcompizconfig@0.8.8,5.11-2014.0.1.0 desktop/compiz/library/libcompizconfig@0.8.8,5.11-2014.1.3.0 noincorporate
-desktop/mate/mate-icon-theme-faenza@1.20.0-2018.0.0.0
+desktop/mate/mate-icon-theme-faenza@1.20.0-2018.0.0.1
 desktop/media-player/moovida/moovida-plugins@0.5.11,5.11-2015.0.2.0
 desktop/media-player/moovida@0.5.11,5.11-2015.0.2.0
 desktop/media-player/songbird@0.5.11,5.11-2014.0.0.0
@@ -555,6 +555,7 @@ developer/clang-3.4@3.4.2,5.11-2017.0.0.0
 developer/clang-3.8@3.8.1,5.11-2017.0.0.0
 developer/clang-34@3.4.2,5.11-2017.0.0.6
 developer/clang-38@3.8.1,5.11-2017.0.0.3
+developer/clang-40@4.0.1,5.11-2018.0.0.6
 developer/cxa_finalize@0.1,5.11-2015.0.2.0
 developer/documentation-tool/epydoc@3.0.1-2015.0.2.0
 developer/g++/icu@4.6,5.11-2014.1.3.0 developer/icu@4.6,5.11-2014.1.3.1 noincorporate
@@ -671,6 +672,7 @@ gnome/speech/gnome-speech/driver/gnome-speech-espeak@0.5.11,5.11-2018.0.0.1
 gnome/speech/gnome-speech@0.5.11,5.11-2018.0.0.1
 gnome/theme/gnome-themes@2.32.1-2018.0.0.1 gnome/theme/gnome-themes-standard
 gnome/theme/gnome-themes-extra@2.32.1,5.11-2018.0.0.0 gnome/theme/gnome-themes-standard
+gnome/theme/gtk3-engines/unico@1.0.2-2018.0.0.1
 gnome/trusted/device-manager@0.6.4,5.11-2015.0.0.0
 gnome/trusted/libgnometsol@0.6.2,5.11-2015.0.0.0
 gnome/trusted/locale/de@0.6,5.11-2015.0.2.0
@@ -780,6 +782,8 @@ library/desktop/g++/webkitgtk@1.2.7,5.11-2017.0.0.0
 library/desktop/gnome-desktop@2.32.1,5.11-2018.0.0.5
 library/desktop/gobject/gir-repository@0.5.11,5.11-2015.0.2.0
 library/desktop/gtkhtml@3.32.2,5.11-2018.0.0.2
+library/desktop/libgtkhtml@2.11.1,5.11-2018.0.0.1
+library/desktop/libwnck@2.30.7,5.11-2018.0.0.4
 library/desktop/mate/caja@1.14.1,5.11-2016.0.0.1 desktop/mate/caja
 library/desktop/mate/mate-backgrounds@1.14.0,5.11-2016.0.0.1 desktop/mate/mate-backgrounds
 library/desktop/mate/mate-icon-theme@1.14.0,5.11-2016.0.0.1 desktop/mate/mate-icon-theme
@@ -961,6 +965,8 @@ runtime/python-26/tests@2.6.9,5.11-2016.0.1.0
 runtime/ruby-18@1.8.7.374,5.11-2014.1.3.3
 runtime/ruby-19@1.9.3.551,5.11-2016.1.0.0
 runtime/ruby-19/ruby-tk@1.9.3.551,5.11-2016.1.0.0
+runtime/ruby-22@2.2.10,5.11-2018.0.0.1
+runtime/ruby-22/ruby-tk@2.2.10,5.11-2018.0.0.1
 runtime/tcl-8/snack@2.2.10,5.11-2017.0.0.0
 security/openscap-perl-512@0.8.1,5.11-2014.0.0.0
 security/openscap-python-26@0.8.1,5.11-2014.0.0.0
@@ -1115,6 +1121,7 @@ system/management/wbem/resource-management@0.5.11,5.11-2015.0.2.0
 system/management/web/openwsman@2.1.0-2018.0.0.0
 system/management/webmin@1.510,5.11-2014.0.1.0
 system/network/routing/quagga@0.99.8,5.11-2018.0.0.0
+system/pciutils/pci.ids@2.2.20180208-2018.0.0.1 system/data/hardware-registry
 system/storage/smartmontools@6.5,5.11-2016.0.1.1 storage/smartmontools@6.5,5.11-2016.0.1.0
 system/test/sunvts/tests@0.5.11,5.11-2015.0.2.0
 system/trusted/trusted-nonglobal@0.5.11,5.11-2015.0.2.0

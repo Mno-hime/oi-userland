@@ -34,8 +34,7 @@ depend fmri=developer/build/onbld type=require
 depend fmri=developer/build/help2man type=require
 depend fmri=developer/linker type=require
 
-# Compilers
-depend fmri=developer/sunstudio12u1/cc type=require
+# Compiler
 depend fmri=developer/gcc-6 type=require
 
 # Headers
@@ -107,6 +106,8 @@ depend fmri=developer/java/junit type=require
 depend fmri=runtime/perl-522 type=require
 depend fmri=runtime/lua type=require
 depend fmri=library/apr-util type=require
+depend fmri=runtime/python-27 type=require
+depend fmri=runtime/python-35 type=require
 
 # illumos-gate build dependencies
 depend fmri=developer/as type=require

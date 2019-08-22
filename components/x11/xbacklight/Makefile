@@ -13,33 +13,18 @@
 # Copyright 2019 Michal Nowak
 #
 
+X11_CATEGORY=APP
 include ../../../make-rules/shared-macros.mk
 include $(WS_MAKE_RULES)/x11.mk
 
 COMPONENT_NAME=           xbacklight
-COMPONENT_VERSION=        1.2.2
+COMPONENT_VERSION=        1.2.3
 COMPONENT_SUMMARY=        xbacklight - adjust backlight brightness
-COMPONENT_PROJECT_URL =   $(XORG_PROJECT_URL)
 COMPONENT_FMRI=           x11/xbacklight
-COMPONENT_CLASSIFICATION= System/X11
-COMPONENT_SRC=            $(COMPONENT_NAME)-$(COMPONENT_VERSION)
-COMPONENT_ARCHIVE=        $(COMPONENT_SRC).tar.bz2
 COMPONENT_ARCHIVE_HASH= \
-	sha256:615a1d13e429ed5a0300b2f4508bc199d7cf21b6b9f088a9d8188d3bc957bf5e
-COMPONENT_ARCHIVE_URL=    $(XORG_APP_BASE_URL)/$(COMPONENT_ARCHIVE)
-COMPONENT_LICENSE=        MIT License
+  sha256:3a27f324777ae99fee476cfb2f064576fb8cba4eb77f97cda37adda1c1d39ade
 
-include $(WS_MAKE_RULES)/prep.mk
-include $(WS_MAKE_RULES)/configure.mk
-include $(WS_MAKE_RULES)/ips.mk
-
-PATH=$(PATH.gnu)
-
-build:		$(BUILD_64)
-
-install:	$(INSTALL_64)
-
-test:		$(NO_TESTS)
+include $(WS_MAKE_RULES)/common.mk
 
 # Auto-generated dependencies
 REQUIRED_PACKAGES += system/library

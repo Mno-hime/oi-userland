@@ -15,12 +15,12 @@ include ../../../../make-rules/shared-macros.mk
 
 COMPONENT_NAME=		php
 COMPONENT_MJR_VERSION=	7.3
-COMPONENT_MNR_VERSION=	5
+COMPONENT_MNR_VERSION=	8
 COMPONENT_VERSION=	$(COMPONENT_MJR_VERSION).$(COMPONENT_MNR_VERSION)
 COMPONENT_REVISION=	1
 COMPONENT_SRC=		$(COMPONENT_NAME)-$(COMPONENT_VERSION)
 COMPONENT_ARCHIVE=	$(COMPONENT_SRC).tar.xz
-COMPONENT_ARCHIVE_HASH=	sha256:e1011838a46fd4a195c8453b333916622d7ff5bce4aca2d9d99afac142db2472
+COMPONENT_ARCHIVE_HASH=	sha256:f6046b2ae625d8c04310bda0737ac660dc5563a8e04e8a46c1ee24ea414ad5a5
 COMPONENT_ARCHIVE_URL=	http://uk1.php.net/get/$(COMPONENT_ARCHIVE)/from/this/mirror
 COMPONENT_SIG_URL=	http://uk1.php.net/get/$(COMPONENT_ARCHIVE).asc/from/this/mirror
 COMPONENT_LICENSE=	PHP License
@@ -29,6 +29,8 @@ COMPONENT_LICENSE_FILE=	LICENSE
 include $(WS_MAKE_RULES)/prep.mk
 include $(WS_MAKE_RULES)/configure.mk
 include $(WS_MAKE_RULES)/ips.mk
+
+PATH=$(PATH.gnu)
 
 # Apache Paths
 AP_PREFIX=/usr/apache2/2.4
@@ -40,6 +42,7 @@ PHP_SYSCONFDIR=/etc/php/$(COMPONENT_MJR_VERSION)
 PHP_DATADIR=/var/php/$(COMPONENT_MJR_VERSION)
 
 CFLAGS			= $(CC_BITS) -D_POSIX_PTHREAD_SEMANTICS
+CPPFLAGS		+= $(CPP_XPG6MODE)
 CPPFLAGS		+= -I/usr/include/openldap
 CPPFLAGS		+=      -I$(MYSQL_INCDIR)
 CFLAGS			+=	-I$(MYSQL_INCDIR)
@@ -110,6 +113,7 @@ CONFIGURE_OPTIONS   +=	--with-imap-ssl
 CONFIGURE_OPTIONS  +=	--with-mysqli=shared,$(MYSQL_BINDIR)/mysql_config
 CONFIGURE_OPTIONS  +=	--with-pdo-mysql=shared,$(MYSQL_BINDIR)/mysql_config
 CONFIGURE_OPTIONS  +=	--with-pgsql=shared,$(PG_BINDIR)
+CONFIGURE_OPTIONS  +=	--with-pdo-pgsql=shared,$(PG_BINDIR)
 
 # Enabled Extensions
 #CONFIGURE_OPTIONS     +=	--with-libxml-dir=$(ECPREFIX)
@@ -212,6 +216,8 @@ test:	$(TEST_64)
 
 # Build dependencies
 REQUIRED_PACKAGES += web/server/apache-24
+REQUIRED_PACKAGES += developer/icu
+REQUIRED_PACKAGES += database/postgres-94/developer
 
 # Auto-generated dependencies
 REQUIRED_PACKAGES += SUNWcs
