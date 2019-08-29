@@ -1,0 +1,45 @@
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright 2018 <contributor>
+#
+
+set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
+set name=pkg.summary value="$(COMPONENT_SUMMARY)"
+set name=info.classification value="$(COMPONENT_CLASSIFICATION)"
+set name=info.upstream-url value=$(COMPONENT_PROJECT_URL)
+set name=info.source-url value=$(COMPONENT_ARCHIVE_URL)
+set name=org.opensolaris.consolidation value=$(CONSOLIDATION)
+
+license $(COMPONENT_LICENSE_FILE) license='$(COMPONENT_LICENSE)'
+
+file path=usr/bin/gusbcmd
+file path=usr/include/gusb-1/gusb-private.h
+file path=usr/include/gusb-1/gusb.h
+file path=usr/include/gusb-1/gusb/gusb-autocleanups.h
+file path=usr/include/gusb-1/gusb/gusb-context-private.h
+file path=usr/include/gusb-1/gusb/gusb-context.h
+file path=usr/include/gusb-1/gusb/gusb-device-list.h
+file path=usr/include/gusb-1/gusb/gusb-device-private.h
+file path=usr/include/gusb-1/gusb/gusb-device.h
+file path=usr/include/gusb-1/gusb/gusb-interface-private.h
+file path=usr/include/gusb-1/gusb/gusb-interface.h
+file path=usr/include/gusb-1/gusb/gusb-source.h
+file path=usr/include/gusb-1/gusb/gusb-util.h
+file path=usr/include/gusb-1/gusb/gusb-version.h
+file path=usr/lib/$(MACH64)/girepository-1.0/GUsb-1.0.typelib
+link path=usr/lib/$(MACH64)/libgusb.so target=libgusb.so.2.0.10
+link path=usr/lib/$(MACH64)/libgusb.so.2 target=libgusb.so.2.0.10
+file path=usr/lib/$(MACH64)/libgusb.so.2.0.10
+file path=usr/lib/$(MACH64)/pkgconfig/gusb.pc
+file path=usr/share/gir-1.0/GUsb-1.0.gir
+file path=usr/share/vala/vapi/gusb.vapi

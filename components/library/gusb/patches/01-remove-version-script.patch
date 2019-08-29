@@ -1,0 +1,12 @@
+--- libgusb-gusb_0_2_11/gusb/Makefile.am	2017-07-24 11:59:44.000000000 +0000
++++ libgusb-gusb_0_2_11/gusb/Makefile.am.new	2019-08-29 13:35:45.253686009 +0000
+@@ -48,8 +48,7 @@ libgusb_la_LIBADD =						\
+ libgusb_la_LDFLAGS =						\
+ 	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)	\
+ 	-export-dynamic						\
+-	-no-undefined						\
+-	-Wl,--version-script=$(top_srcdir)/gusb/libgusb.ver
++	-no-undefined
+ 
+ libgusb_la_CFLAGS =						\
+ 	$(WARNINGFLAGS_C)
