@@ -11,6 +11,7 @@
 
 #
 # Copyright 2019 Alexander Pyhalov
+# Copyright 2019 Michal Nowak
 #
 
 set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
@@ -48,6 +49,7 @@ link path=usr/bin/clang-import-test target=../clang/8.0/bin/clang-import-test me
 link path=usr/bin/clang-offload-bundler target=../clang/8.0/bin/clang-offload-bundler mediator=clang mediator-version=8.0
 link path=usr/bin/clang-refactor target=../clang/8.0/bin/clang-refactor mediator=clang mediator-version=8.0
 link path=usr/bin/clang-rename target=../clang/8.0/bin/clang-rename mediator=clang mediator-version=8.0
+link path=usr/bin/count target=../clang/8.0/bin/count mediator=clang mediator-version=8.0
 link path=usr/bin/clang++ target=../clang/8.0/bin/clang++ mediator=clang mediator-version=8.0
 link path=usr/bin/diagtool target=../clang/8.0/bin/diagtool mediator=clang mediator-version=8.0
 link path=usr/bin/dsymutil target=../clang/8.0/bin/dsymutil mediator=clang mediator-version=8.0
@@ -55,6 +57,8 @@ link path=usr/bin/git-clang-format target=../clang/8.0/bin/git-clang-format medi
 link path=usr/bin/hmaptool target=../clang/8.0/bin/hmaptool mediator=clang mediator-version=8.0
 link path=usr/bin/llc target=../clang/8.0/bin/llc mediator=clang mediator-version=8.0
 link path=usr/bin/lli target=../clang/8.0/bin/lli mediator=clang mediator-version=8.0
+link path=usr/bin/lli-child-target target=../clang/8.0/bin/lli-child-target mediator=clang mediator-version=8.0
+link path=usr/bin/llvm-PerfectShuffle target=../clang/8.0/bin/llvm-PerfectShuffle mediator=clang mediator-version=8.0
 link path=usr/bin/llvm-ar target=../clang/8.0/bin/llvm-ar mediator=clang mediator-version=8.0
 link path=usr/bin/llvm-as target=../clang/8.0/bin/llvm-as mediator=clang mediator-version=8.0
 link path=usr/bin/llvm-bcanalyzer target=../clang/8.0/bin/llvm-bcanalyzer mediator=clang mediator-version=8.0
@@ -103,6 +107,7 @@ link path=usr/bin/llvm-symbolizer target=../clang/8.0/bin/llvm-symbolizer mediat
 link path=usr/bin/llvm-tblgen target=../clang/8.0/bin/llvm-tblgen mediator=clang mediator-version=8.0
 link path=usr/bin/llvm-undname target=../clang/8.0/bin/llvm-undname mediator=clang mediator-version=8.0
 link path=usr/bin/llvm-xray target=../clang/8.0/bin/llvm-xray mediator=clang mediator-version=8.0
+link path=usr/bin/not target=../clang/8.0/bin/not mediator=clang mediator-version=8.0
 link path=usr/bin/obj2yaml target=../clang/8.0/bin/obj2yaml mediator=clang mediator-version=8.0
 link path=usr/bin/opt target=../clang/8.0/bin/opt mediator=clang mediator-version=8.0
 link path=usr/bin/sancov target=../clang/8.0/bin/sancov mediator=clang mediator-version=8.0
@@ -110,6 +115,7 @@ link path=usr/bin/sanstats target=../clang/8.0/bin/sanstats mediator=clang media
 link path=usr/bin/scan-build target=../clang/8.0/bin/scan-build mediator=clang mediator-version=8.0
 link path=usr/bin/scan-view target=../clang/8.0/bin/scan-view mediator=clang mediator-version=8.0
 link path=usr/bin/verify-uselistorder target=../clang/8.0/bin/verify-uselistorder mediator=clang mediator-version=8.0
+link path=usr/bin/yaml-bench target=../clang/8.0/bin/yaml-bench mediator=clang mediator-version=8.0
 link path=usr/bin/yaml2obj target=../clang/8.0/bin/yaml2obj mediator=clang mediator-version=8.0
 
 file path=usr/clang/8.0/bin/bugpoint
@@ -126,12 +132,15 @@ file path=usr/clang/8.0/bin/clang-import-test
 file path=usr/clang/8.0/bin/clang-offload-bundler
 file path=usr/clang/8.0/bin/clang-refactor
 file path=usr/clang/8.0/bin/clang-rename
+file path=usr/clang/8.0/bin/count
 file path=usr/clang/8.0/bin/diagtool
 file path=usr/clang/8.0/bin/dsymutil
 file path=usr/clang/8.0/bin/git-clang-format
 file path=usr/clang/8.0/bin/hmaptool
 file path=usr/clang/8.0/bin/llc
 file path=usr/clang/8.0/bin/lli
+file path=usr/clang/8.0/bin/lli-child-target
+file path=usr/clang/8.0/bin/llvm-PerfectShuffle
 file path=usr/clang/8.0/bin/llvm-ar
 file path=usr/clang/8.0/bin/llvm-as
 file path=usr/clang/8.0/bin/llvm-bcanalyzer
@@ -180,6 +189,7 @@ file path=usr/clang/8.0/bin/llvm-symbolizer
 file path=usr/clang/8.0/bin/llvm-tblgen
 file path=usr/clang/8.0/bin/llvm-undname
 file path=usr/clang/8.0/bin/llvm-xray
+file path=usr/clang/8.0/bin/not
 file path=usr/clang/8.0/bin/obj2yaml
 file path=usr/clang/8.0/bin/opt
 file path=usr/clang/8.0/bin/sancov
@@ -187,6 +197,7 @@ file path=usr/clang/8.0/bin/sanstats
 file path=usr/clang/8.0/bin/scan-build
 file path=usr/clang/8.0/bin/scan-view pkg.depend.bypass-generate=.*
 file path=usr/clang/8.0/bin/verify-uselistorder
+file path=usr/clang/8.0/bin/yaml-bench
 file path=usr/clang/8.0/bin/yaml2obj
 file path=usr/clang/8.0/include/clang-c/BuildSystem.h
 file path=usr/clang/8.0/include/clang-c/CXCompilationDatabase.h
@@ -2227,6 +2238,9 @@ file path=usr/clang/8.0/lib/cmake/llvm/LLVMInstallSymlink.cmake
 file path=usr/clang/8.0/lib/cmake/llvm/LLVMProcessSources.cmake
 file path=usr/clang/8.0/lib/cmake/llvm/TableGen.cmake
 file path=usr/clang/8.0/lib/cmake/llvm/VersionFromVCS.cmake
+link path=usr/clang/8.0/lib/libLLVM-$(COMPONENT_VERSION).so target=libLLVM-8.so
+file path=usr/clang/8.0/lib/libLLVM-8.so
+link path=usr/clang/8.0/lib/libLLVM.so target=libLLVM-8.so
 file path=usr/clang/8.0/lib/libLLVMAArch64AsmParser.a
 file path=usr/clang/8.0/lib/libLLVMAArch64AsmPrinter.a
 file path=usr/clang/8.0/lib/libLLVMAArch64CodeGen.a

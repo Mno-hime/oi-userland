@@ -22,6 +22,7 @@ set name=org.opensolaris.consolidation value=$(CONSOLIDATION)
 
 license $(COMPONENT_LICENSE_FILE) license='$(COMPONENT_LICENSE)'
 
+file path=usr/clang/8.0/bin/FileCheck
 file path=usr/clang/8.0/bin/bugpoint
 file path=usr/clang/8.0/bin/c-index-test
 link path=usr/clang/8.0/bin/clang target=clang-8
@@ -36,12 +37,15 @@ file path=usr/clang/8.0/bin/clang-import-test
 file path=usr/clang/8.0/bin/clang-offload-bundler
 file path=usr/clang/8.0/bin/clang-refactor
 file path=usr/clang/8.0/bin/clang-rename
+file path=usr/clang/8.0/bin/count
 file path=usr/clang/8.0/bin/diagtool
 file path=usr/clang/8.0/bin/dsymutil
 file path=usr/clang/8.0/bin/git-clang-format
 file path=usr/clang/8.0/bin/hmaptool
 file path=usr/clang/8.0/bin/llc
 file path=usr/clang/8.0/bin/lli
+file path=usr/clang/8.0/bin/lli-child-target
+file path=usr/clang/8.0/bin/llvm-PerfectShuffle
 file path=usr/clang/8.0/bin/llvm-ar
 file path=usr/clang/8.0/bin/llvm-as
 file path=usr/clang/8.0/bin/llvm-bcanalyzer
@@ -90,6 +94,7 @@ file path=usr/clang/8.0/bin/llvm-symbolizer
 file path=usr/clang/8.0/bin/llvm-tblgen
 file path=usr/clang/8.0/bin/llvm-undname
 file path=usr/clang/8.0/bin/llvm-xray
+file path=usr/clang/8.0/bin/not
 file path=usr/clang/8.0/bin/obj2yaml
 file path=usr/clang/8.0/bin/opt
 file path=usr/clang/8.0/bin/sancov
@@ -97,6 +102,7 @@ file path=usr/clang/8.0/bin/sanstats
 file path=usr/clang/8.0/bin/scan-build
 file path=usr/clang/8.0/bin/scan-view
 file path=usr/clang/8.0/bin/verify-uselistorder
+file path=usr/clang/8.0/bin/yaml-bench
 file path=usr/clang/8.0/bin/yaml2obj
 file path=usr/clang/8.0/include/clang-c/BuildSystem.h
 file path=usr/clang/8.0/include/clang-c/CXCompilationDatabase.h
@@ -2137,6 +2143,9 @@ file path=usr/clang/8.0/lib/cmake/llvm/LLVMInstallSymlink.cmake
 file path=usr/clang/8.0/lib/cmake/llvm/LLVMProcessSources.cmake
 file path=usr/clang/8.0/lib/cmake/llvm/TableGen.cmake
 file path=usr/clang/8.0/lib/cmake/llvm/VersionFromVCS.cmake
+link path=usr/clang/8.0/lib/libLLVM-$(COMPONENT_VERSION).so target=libLLVM-8.so
+file path=usr/clang/8.0/lib/libLLVM-8.so
+link path=usr/clang/8.0/lib/libLLVM.so target=libLLVM-8.so
 file path=usr/clang/8.0/lib/libLLVMAArch64AsmParser.a
 file path=usr/clang/8.0/lib/libLLVMAArch64AsmPrinter.a
 file path=usr/clang/8.0/lib/libLLVMAArch64CodeGen.a
