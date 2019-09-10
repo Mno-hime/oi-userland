@@ -1,0 +1,8 @@
+--- src/libstd/Cargo.toml.orig	2019-09-08 01:33:05.180648276 +0000
++++ src/libstd/Cargo.toml	2019-09-08 01:33:51.476085968 +0000
+@@ -89,4 +89,4 @@
+ # Maximum possible number of threads when testing
+ threads = 125
+ # Maximum heap size
+-heap_size = 0x8000000
++heap_size = "0x8000000"

@@ -30,25 +30,25 @@ PREFERRED_BITS=		64
 include ../../../make-rules/shared-macros.mk
 
 COMPONENT_NAME=		rustc
-COMPONENT_VERSION=	1.32.0
+COMPONENT_VERSION=	1.37.0
 COMPONENT_FMRI=		developer/lang/rustc
 COMPONENT_SUMMARY=	Rust - Safe, concurrent, practical language
 COMPONENT_CLASSIFICATION=	Development/Other Languages
 COMPONENT_PROJECT_URL=	http://www.rust-lang.org
 COMPONENT_SRC=		$(COMPONENT_NAME)-$(COMPONENT_VERSION)-src
 COMPONENT_ARCHIVE=	$(COMPONENT_SRC).tar.gz
-COMPONENT_ARCHIVE_HASH=	sha256:4c594c7712a0e7e8eae6526c464bf6ea1d82f77b4f61717c3fc28fb27ba2224a
+COMPONENT_ARCHIVE_HASH=	sha256:120e7020d065499cc6b28759ff04153bfdc2ac9b5adeb252331a4eb87cbe38c3
 COMPONENT_ARCHIVE_URL=	https://static.rust-lang.org/dist/$(COMPONENT_ARCHIVE)
 COMPONENT_LICENSE=	MIT or Apache-2.0
 
-RUST_STAGE0_VER=        1.32.0
+RUST_STAGE0_VER=        1.36.0
 RUST_ARCH:=             x86_64-sun-solaris
 
 COMPONENT_NAME_1=	rust
 COMPONENT_VERSION_1=	$(RUST_STAGE0_VER)
 COMPONENT_SRC_1=	$(COMPONENT_NAME_1)-$(COMPONENT_VERSION_1)-$(RUST_ARCH)
 COMPONENT_ARCHIVE_1=	$(COMPONENT_SRC_1).tar.gz
-COMPONENT_ARCHIVE_HASH_1=	sha256:689586af4297df329884239f5e82b09ac3f8ac9f425ffcbfdb5382b1c7465496
+COMPONENT_ARCHIVE_HASH_1=	sha256:46db1724c6f60fc8e05ee14a921ab36ac8ff4d4a3adb41a7148ee815f617003e
 COMPONENT_ARCHIVE_URL_1=	https://us-east.manta.joyent.com/pkgsrc/public/pkg-bootstraps/$(COMPONENT_ARCHIVE_1)
 
 SOURCE_DIR_1=		$(COMPONENT_DIR)/$(COMPONENT_SRC_1)
@@ -73,10 +73,12 @@ CXXFLAGS +=	-D_POSIX_PTHREAD_SEMANTICS
 PKG_MACROS+= RUST_ARCH="$(RUST_ARCH)"
 
 COMPONENT_PREP_ACTION = \
-	$(GSED) -i -e 's/9c6af198a2f80da827054784faf70bc404673d9568fb45664b4f73c46245fdbd/c3851969a854d6ccaa8a94369f1288025149d1ebdc74b36f224423f35b18f7a7/' \
+	$(GSED) -i -e 's/0c6d148d84f2fa9feb86b464d30af9c52322553bf321ae4fe27184d274ccbe21/27dae4ec77f317c74e2c205658bcc8220c512f751802b754b07770c16e420dd1/' \
 		$(SOURCE_DIR)/vendor/libc/.cargo-checksum.json; \
-	$(GSED) -i -e 's/cb94a0b54e47022b2e9b58b45e0196785c61d083760333276226da435cc040d9/bcb195562cf830c9e2078757e6d0976f86ede59816ff305e21a2764a4a4cf43e/' \
-		$(SOURCE_DIR)/vendor/rand/.cargo-checksum.json;
+	$(GSED) -i -e 's/1e732c2e3b4bd1561f11e0979bf9d20669a96eae7afe0deff9dfbb980ee47bf1/55abd8100db14a076dedbf84ce0f2db08158e1bd33ff1d4978bd3c4ad978f281/' \
+		$(SOURCE_DIR)/vendor/rand/.cargo-checksum.json; \
+	$(GSED) -i -e 's/59763fc255248b54fba5d0761d61093a73d51fa4cb400b0df1b5f339b9c2f48a/ba66d192421fd536ceddb50616c4c4aea06f4e39450eb0bc2bbbaed0b1e684c1/' \
+		$(SOURCE_DIR)/vendor/backtrace-sys/.cargo-checksum.json;
 
 COMPONENT_PRE_CONFIGURE_ACTION = ($(CLONEY) $(SOURCE_DIR) $(@D))
 
@@ -112,11 +114,13 @@ CONFIGURE_OPTIONS += --enable-rpath
 CONFIGURE_OPTIONS += --disable-codegen-tests
 CONFIGURE_OPTIONS += --disable-dist-src
 CONFIGURE_OPTIONS += --disable-llvm-static-stdcpp
-CONFIGURE_OPTIONS += --disable-ninja
+CONFIGURE_OPTIONS += --enable-ninja
 CONFIGURE_OPTIONS += --enable-vendor
 CONFIGURE_OPTIONS += --disable-docs
 CONFIGURE_OPTIONS += --release-channel=stable
 CONFIGURE_OPTIONS += --python=$(PYTHON)
+CONFIGURE_OPTIONS += --disable-llvm-link-shared
+CONFIGURE_OPTIONS += --llvm-root="/usr/clang/8.0"
 
 # Cleanup standard environment!
 COMPONENT_BUILD_ENV =
@@ -193,3 +197,4 @@ REQUIRED_PACKAGES += SUNWcs
 REQUIRED_PACKAGES += system/library
 REQUIRED_PACKAGES += system/library/math
 REQUIRED_PACKAGES += web/curl
+REQUIRED_PACKAGES += developer/clang-80
