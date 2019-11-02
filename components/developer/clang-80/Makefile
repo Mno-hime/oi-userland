@@ -84,10 +84,64 @@ CMAKE = cmake -G Ninja
 GMAKE = /usr/bin/ninja
 TESTSUITE_MAKE = $(GMAKE)
 
+CFLAGS += -pthread -std=c99 -fno-strict-aliasing
+CFLAGS += -Wall -Wcast-align -Wno-long-long -Woverflow
+CFLAGS += -Wstack-protector -fdata-sections -fstack-protector-all
+CFLAGS += -fkeep-static-consts -ffunction-sections
+
+CFLAGS += -fno-omit-frame-pointer
+CFLAGS += -Wl,-z -Wl,relax=common
+CFLAGS += -Wl,-z -Wl,relax=secadj
+CFLAGS += -Wl,-z -Wl,relax=transtls
+CFLAGS += -Wl,-z -Wl,relax=symbound
+CFLAGS += -Wl,-R -Wl,$(LLVM_RUNPATH)
+CFLAGS.gcc.i386 += -mtune=opteron -mno-sse3 -mno-ssse3 -fno-common 
+
+CFLAGS.gcc.sparc += -fno-delayed-branch
+CFLAGS.gcc.sparc += -mtune=ultrasparc -mcpu=ultrasparc -mvis -mhard-float
+CFLAGS.gcc.sparc += -fdata-sections -falign-functions=8
+CFLAGS.gcc.sparc += -mno-unaligned-doubles -mimpure-text
+
+CXXFLAGS += $(CFLAGS.$(COMPILER).$(MACH))
+CXXFLAGS += -pthread -fno-strict-aliasing
+CXXFLAGS += -fexceptions -frtti -fstack-protector-all
+CXXFLAGS += -Wall -Wcast-align -Wno-long-long -Woverflow
+CXXFLAGS += -Wstack-protector -fkeep-static-consts
+CXXFLAGS += -std=c++11 -fdata-sections -ffunction-sections
+CXXFLAGS += -Wl,-z -Wl,relax=common
+CXXFLAGS += -Wl,-z -Wl,relax=secadj
+CXXFLAGS += -Wl,-z -Wl,relax=transtls
+CXXFLAGS += -Wl,-z -Wl,relax=symbound
+CXXFLAGS += -Wl,-z -Wl,relax=comdat
+CXXFLAGS += -Wl,-z -Wl,gnu-version-script-compat
+CXXFLAGS += -Wl,-R -Wl,$(LLVM_RUNPATH)
+
+CPPFLAGS += -D_GNU_SOURCE -DLLVM_SOLARIS -I/usr/gnu/include
+
+CPPFLAGS += -D_REENTRANT -D_LARGEFILE64_SOURCE
+CPPFLAGS += -D_FILE_OFFSET_BITS=64 -D__EXTENSIONS__=1
+CPPFLAGS += -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS
+CPPFLAGS += -D__STDC_LIMIT_MACROS -DHAVE_POSIX_MEMALIGN
+CPPFLAGS += -D_GLIBCXX_FULLY_DYNAMIC_STRING=1
+CPPFLAGS.i386 = -DLLVM_INTEL
+CPPFLAGS.sparc = -DLLVM_SPARC
+CPPFLAGS += $(CPPFLAGS.$(MACH))
+
+LD_B_DIRECT =
+LD_OPTIONS = -M /usr/lib/ld/map.noexstk
+LD_OPTIONS += -M /usr/lib/ld/map.pagealign
+LD_OPTIONS_SO = $(LD_Z_DEFS) $(LD_DEF_LIBS)
+
+CMAKE_OPTIONS += -DCMAKE_ASM_COMPILER:STRING="/usr/gnu/bin/as"
+CMAKE_OPTIONS += -DCMAKE_INSTALL_RPATH:STRING="$(LLVM_RUNPATH)"
+COMPONENT_BUILD_ENV += LD_EXEC_OPTIONS="-zaslr=disable"
+COMPONENT_BUILD_ENV += LDFLAGS="$(LDFLAGS)"
+COMPONENT_INSTALL_ARGS += SHELL=/bin/bash
+#CMAKE_OPTIONS=
 CMAKE_OPTIONS += -DCMAKE_C_COMPILER=$(CC)
 CMAKE_OPTIONS += -DCMAKE_CXX_COMPILER=$(CXX)
 CMAKE_OPTIONS += -DGCC_INSTALL_PREFIX=$(GCC_ROOT)
-CMAKE_OPTIONS += -DCMAKE_CXX_LINK_FLAGS="-L$(GCC_LIBDIR) -Wl,-rpath,$(GCC_LIBDIR)"
+#CMAKE_OPTIONS += -DCMAKE_CXX_LINK_FLAGS="-L$(GCC_LIBDIR) -Wl,-rpath,$(GCC_LIBDIR)"
 CMAKE_OPTIONS += -DLLVM_ENABLE_ASSERTIONS=ON
 CMAKE_OPTIONS += -DCMAKE_BUILD_TYPE="Release"
 CMAKE_OPTIONS += -DCLANG_DEFAULT_LINKER="/usr/bin/ld"
@@ -97,8 +151,8 @@ CMAKE_OPTIONS += -DLLVM_LINK_LLVM_DYLIB=ON
 CMAKE_OPTIONS += -DLLVM_BUILD_LLVM_DYLIB=ON
 CMAKE_OPTIONS += -DLLVM_INSTALL_UTILS=ON
 CMAKE_OPTIONS += -DBUILD_SHARED_LIBS=ON
-CMAKE_OPTIONS += -DCMAKE_CXX_STANDARD=11
-CMAKE_OPTIONS += -DCMAKE_CXX_STANDARD_REQUIRED=ON
+#CMAKE_OPTIONS += -DCMAKE_CXX_STANDARD=11
+#CMAKE_OPTIONS += -DCMAKE_CXX_STANDARD_REQUIRED=ON
 CMAKE_OPTIONS += -DLLVM_ENABLE_PIC=OFF
 CMAKE_OPTIONS += -DPYTHON_EXECUTABLE="$(PYTHON)"
 
