@@ -76,9 +76,15 @@ def bump_component_revision(contents):
     if has_component_revision:
         contents_new.extend(contents[:component_revision_idx])
 
-        component_revision = int(contents[component_revision_idx].split('=')[-1])
-        component_revision += 1
-        contents_new.append('COMPONENT_REVISION=\t{}\n'.format(component_revision))
+        component_revision = contents[component_revision_idx].split('=')[-1]
+        try:
+            component_revision_int = int(component_revision)
+        except ValueError:
+            print('\tSkipping component, COMPONENT_REVISION field malformed: {}'.format(component_revision))
+            return contents
+        else:
+            component_revision_int += 1
+            contents_new.append('COMPONENT_REVISION=\t{}\n'.format(component_revision_int))
 
         contents_new.extend(contents[component_revision_idx + 1:])
     else:
