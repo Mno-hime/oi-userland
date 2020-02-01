@@ -81,7 +81,9 @@ COMPONENT_PREP_ACTION = \
 	$(GSED) -i -e 's/8e5369ed1e86c5be92831d290b9eeb77c537a2de728950a5086e77438a4f0f3a/dac34dab563a2ca03c1d43f0224736f30662c3bbf0c2f1c44e220a7172345f4f/' \
 		$(SOURCE_DIR)/vendor/libc/.cargo-checksum.json; \
 	$(GSED) -i -e 's/59763fc255248b54fba5d0761d61093a73d51fa4cb400b0df1b5f339b9c2f48a/ba66d192421fd536ceddb50616c4c4aea06f4e39450eb0bc2bbbaed0b1e684c1/' \
-		$(SOURCE_DIR)/vendor/backtrace-sys/.cargo-checksum.json;
+		$(SOURCE_DIR)/vendor/backtrace-sys/.cargo-checksum.json; \
+	$(GSED) -i -e 's/51a9ca7a4576822dc4fa01b31bc4bbed21817777abb304f605ef5951f68c3ed2/807c3aa4b5a62a70ba790df151e9ecf19f4bb562f2858575d690908751262db3/' \
+		$(SOURCE_DIR)/vendor/lzma-sys/.cargo-checksum.json;
 
 COMPONENT_PRE_CONFIGURE_ACTION = ($(CLONEY) $(SOURCE_DIR) $(@D))
 
