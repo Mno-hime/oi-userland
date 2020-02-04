@@ -1,0 +1,48 @@
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright 2020, Michal Nowak
+#
+
+set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
+set name=pkg.summary value="$(COMPONENT_SUMMARY)"
+set name=info.classification value="$(COMPONENT_CLASSIFICATION)"
+set name=info.upstream-url value=$(COMPONENT_PROJECT_URL)
+set name=info.source-url value=$(COMPONENT_ARCHIVE_URL)
+set name=org.opensolaris.consolidation value=$(CONSOLIDATION)
+
+license $(COMPONENT_LICENSE_FILE) license='$(COMPONENT_LICENSE)'
+
+file path=usr/include/lutok/c_gate.hpp
+file path=usr/include/lutok/debug.hpp
+file path=usr/include/lutok/exceptions.hpp
+file path=usr/include/lutok/operations.hpp
+file path=usr/include/lutok/stack_cleaner.hpp
+file path=usr/include/lutok/state.hpp
+file path=usr/include/lutok/state.ipp
+file path=usr/include/lutok/test_utils.hpp
+link path=usr/lib/$(MACH64)/liblutok.so target=liblutok.so.3.0.0
+link path=usr/lib/$(MACH64)/liblutok.so.3 target=liblutok.so.3.0.0
+file path=usr/lib/$(MACH64)/liblutok.so.3.0.0
+file path=usr/lib/$(MACH64)/pkgconfig/lutok.pc
+link path=usr/lib/liblutok.so target=liblutok.so.3.0.0
+link path=usr/lib/liblutok.so.3 target=liblutok.so.3.0.0
+file path=usr/lib/liblutok.so.3.0.0
+file path=usr/lib/pkgconfig/lutok.pc
+#file path=usr/tests/lutok/Kyuafile
+#file path=usr/tests/lutok/c_gate_test
+#file path=usr/tests/lutok/debug_test
+#file path=usr/tests/lutok/examples_test
+#file path=usr/tests/lutok/exceptions_test
+#file path=usr/tests/lutok/operations_test
+#file path=usr/tests/lutok/stack_cleaner_test
+#file path=usr/tests/lutok/state_test

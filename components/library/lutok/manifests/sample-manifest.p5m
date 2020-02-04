@@ -1,0 +1,263 @@
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright 2018 <contributor>
+#
+
+set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
+set name=pkg.summary value="$(COMPONENT_SUMMARY)"
+set name=info.classification value="$(COMPONENT_CLASSIFICATION)"
+set name=info.upstream-url value=$(COMPONENT_PROJECT_URL)
+set name=info.source-url value=$(COMPONENT_ARCHIVE_URL)
+set name=org.opensolaris.consolidation value=$(CONSOLIDATION)
+
+license $(COMPONENT_LICENSE_FILE) license='$(COMPONENT_LICENSE)'
+
+file path=usr/include/lutok/c_gate.hpp
+file path=usr/include/lutok/debug.hpp
+file path=usr/include/lutok/exceptions.hpp
+file path=usr/include/lutok/operations.hpp
+file path=usr/include/lutok/stack_cleaner.hpp
+file path=usr/include/lutok/state.hpp
+file path=usr/include/lutok/state.ipp
+file path=usr/include/lutok/test_utils.hpp
+link path=usr/lib/$(MACH64)/liblutok.so target=liblutok.so.3.0.0
+link path=usr/lib/$(MACH64)/liblutok.so.3 target=liblutok.so.3.0.0
+file path=usr/lib/$(MACH64)/liblutok.so.3.0.0
+file path=usr/lib/$(MACH64)/pkgconfig/lutok.pc
+link path=usr/lib/liblutok.so target=liblutok.so.3.0.0
+link path=usr/lib/liblutok.so.3 target=liblutok.so.3.0.0
+file path=usr/lib/liblutok.so.3.0.0
+file path=usr/lib/pkgconfig/lutok.pc
+file path=usr/share/doc/lutok/AUTHORS
+file path=usr/share/doc/lutok/COPYING
+file path=usr/share/doc/lutok/NEWS
+file path=usr/share/doc/lutok/README
+file path=usr/share/doc/lutok/a00001.html
+file path=usr/share/doc/lutok/a00002.html
+file path=usr/share/doc/lutok/a00002.png
+file path=usr/share/doc/lutok/a00003.html
+file path=usr/share/doc/lutok/a00004.html
+file path=usr/share/doc/lutok/a00005.html
+file path=usr/share/doc/lutok/a00005.png
+file path=usr/share/doc/lutok/a00006.html
+file path=usr/share/doc/lutok/a00006.png
+file path=usr/share/doc/lutok/a00007.html
+file path=usr/share/doc/lutok/a00008.html
+file path=usr/share/doc/lutok/a00009.html
+file path=usr/share/doc/lutok/a00010.html
+file path=usr/share/doc/lutok/a00011.html
+file path=usr/share/doc/lutok/a00013.html
+file path=usr/share/doc/lutok/a00013_source.html
+file path=usr/share/doc/lutok/a00016.html
+file path=usr/share/doc/lutok/a00016_source.html
+file path=usr/share/doc/lutok/a00019.html
+file path=usr/share/doc/lutok/a00019_source.html
+file path=usr/share/doc/lutok/a00022.html
+file path=usr/share/doc/lutok/a00022_source.html
+file path=usr/share/doc/lutok/a00025.html
+file path=usr/share/doc/lutok/a00025_source.html
+file path=usr/share/doc/lutok/a00028.html
+file path=usr/share/doc/lutok/a00028_source.html
+file path=usr/share/doc/lutok/a00031.html
+file path=usr/share/doc/lutok/a00031_source.html
+file path=usr/share/doc/lutok/a00032.html
+file path=usr/share/doc/lutok/a00033.html
+file path=usr/share/doc/lutok/a00034.html
+file path=usr/share/doc/lutok/a00035.html
+file path=usr/share/doc/lutok/a00039.html
+file path=usr/share/doc/lutok/a00040.html
+file path=usr/share/doc/lutok/a00041.html
+file path=usr/share/doc/lutok/a00042.html
+file path=usr/share/doc/lutok/a00043.html
+file path=usr/share/doc/lutok/a00044.html
+file path=usr/share/doc/lutok/a00045.html
+file path=usr/share/doc/lutok/a00046.html
+file path=usr/share/doc/lutok/a00047.html
+file path=usr/share/doc/lutok/a00048.html
+file path=usr/share/doc/lutok/a00049.html
+file path=usr/share/doc/lutok/annotated.html
+file path=usr/share/doc/lutok/bc_s.png
+file path=usr/share/doc/lutok/bdwn.png
+file path=usr/share/doc/lutok/classes.html
+file path=usr/share/doc/lutok/closed.png
+file path=usr/share/doc/lutok/doxygen.css
+file path=usr/share/doc/lutok/doxygen.png
+file path=usr/share/doc/lutok/dynsections.js
+file path=usr/share/doc/lutok/examples/Makefile
+file path=usr/share/doc/lutok/examples/bindings.cpp
+file path=usr/share/doc/lutok/examples/hello.cpp
+file path=usr/share/doc/lutok/examples/interpreter.cpp
+file path=usr/share/doc/lutok/examples/raii.cpp
+file path=usr/share/doc/lutok/files.html
+file path=usr/share/doc/lutok/ftv2blank.png
+file path=usr/share/doc/lutok/ftv2cl.png
+file path=usr/share/doc/lutok/ftv2doc.png
+file path=usr/share/doc/lutok/ftv2folderclosed.png
+file path=usr/share/doc/lutok/ftv2folderopen.png
+file path=usr/share/doc/lutok/ftv2lastnode.png
+file path=usr/share/doc/lutok/ftv2link.png
+file path=usr/share/doc/lutok/ftv2mlastnode.png
+file path=usr/share/doc/lutok/ftv2mnode.png
+file path=usr/share/doc/lutok/ftv2mo.png
+file path=usr/share/doc/lutok/ftv2node.png
+file path=usr/share/doc/lutok/ftv2ns.png
+file path=usr/share/doc/lutok/ftv2plastnode.png
+file path=usr/share/doc/lutok/ftv2pnode.png
+file path=usr/share/doc/lutok/ftv2splitbar.png
+file path=usr/share/doc/lutok/ftv2vertline.png
+file path=usr/share/doc/lutok/functions.html
+file path=usr/share/doc/lutok/functions_func.html
+file path=usr/share/doc/lutok/functions_vars.html
+file path=usr/share/doc/lutok/globals.html
+file path=usr/share/doc/lutok/globals_defs.html
+file path=usr/share/doc/lutok/hierarchy.html
+file path=usr/share/doc/lutok/index.html
+file path=usr/share/doc/lutok/jquery.js
+file path=usr/share/doc/lutok/namespacemembers.html
+file path=usr/share/doc/lutok/namespacemembers_func.html
+file path=usr/share/doc/lutok/namespaces.html
+file path=usr/share/doc/lutok/nav_f.png
+file path=usr/share/doc/lutok/nav_g.png
+file path=usr/share/doc/lutok/nav_h.png
+file path=usr/share/doc/lutok/open.png
+file path=usr/share/doc/lutok/search/all_5f.html
+file path=usr/share/doc/lutok/search/all_5f.js
+file path=usr/share/doc/lutok/search/all_61.html
+file path=usr/share/doc/lutok/search/all_61.js
+file path=usr/share/doc/lutok/search/all_63.html
+file path=usr/share/doc/lutok/search/all_63.js
+file path=usr/share/doc/lutok/search/all_64.html
+file path=usr/share/doc/lutok/search/all_64.js
+file path=usr/share/doc/lutok/search/all_65.html
+file path=usr/share/doc/lutok/search/all_65.js
+file path=usr/share/doc/lutok/search/all_66.html
+file path=usr/share/doc/lutok/search/all_66.js
+file path=usr/share/doc/lutok/search/all_67.html
+file path=usr/share/doc/lutok/search/all_67.js
+file path=usr/share/doc/lutok/search/all_68.html
+file path=usr/share/doc/lutok/search/all_68.js
+file path=usr/share/doc/lutok/search/all_69.html
+file path=usr/share/doc/lutok/search/all_69.js
+file path=usr/share/doc/lutok/search/all_6c.html
+file path=usr/share/doc/lutok/search/all_6c.js
+file path=usr/share/doc/lutok/search/all_6e.html
+file path=usr/share/doc/lutok/search/all_6e.js
+file path=usr/share/doc/lutok/search/all_6f.html
+file path=usr/share/doc/lutok/search/all_6f.js
+file path=usr/share/doc/lutok/search/all_70.html
+file path=usr/share/doc/lutok/search/all_70.js
+file path=usr/share/doc/lutok/search/all_72.html
+file path=usr/share/doc/lutok/search/all_72.js
+file path=usr/share/doc/lutok/search/all_73.html
+file path=usr/share/doc/lutok/search/all_73.js
+file path=usr/share/doc/lutok/search/all_74.html
+file path=usr/share/doc/lutok/search/all_74.js
+file path=usr/share/doc/lutok/search/all_75.html
+file path=usr/share/doc/lutok/search/all_75.js
+file path=usr/share/doc/lutok/search/all_77.html
+file path=usr/share/doc/lutok/search/all_77.js
+file path=usr/share/doc/lutok/search/all_7e.html
+file path=usr/share/doc/lutok/search/all_7e.js
+file path=usr/share/doc/lutok/search/classes_61.html
+file path=usr/share/doc/lutok/search/classes_61.js
+file path=usr/share/doc/lutok/search/classes_64.html
+file path=usr/share/doc/lutok/search/classes_64.js
+file path=usr/share/doc/lutok/search/classes_65.html
+file path=usr/share/doc/lutok/search/classes_65.js
+file path=usr/share/doc/lutok/search/classes_66.html
+file path=usr/share/doc/lutok/search/classes_66.js
+file path=usr/share/doc/lutok/search/classes_69.html
+file path=usr/share/doc/lutok/search/classes_69.js
+file path=usr/share/doc/lutok/search/classes_73.html
+file path=usr/share/doc/lutok/search/classes_73.js
+file path=usr/share/doc/lutok/search/close.png
+file path=usr/share/doc/lutok/search/defines_72.html
+file path=usr/share/doc/lutok/search/defines_72.js
+file path=usr/share/doc/lutok/search/files_63.html
+file path=usr/share/doc/lutok/search/files_63.js
+file path=usr/share/doc/lutok/search/files_64.html
+file path=usr/share/doc/lutok/search/files_64.js
+file path=usr/share/doc/lutok/search/files_65.html
+file path=usr/share/doc/lutok/search/files_65.js
+file path=usr/share/doc/lutok/search/files_6f.html
+file path=usr/share/doc/lutok/search/files_6f.js
+file path=usr/share/doc/lutok/search/files_73.html
+file path=usr/share/doc/lutok/search/files_73.js
+file path=usr/share/doc/lutok/search/files_74.html
+file path=usr/share/doc/lutok/search/files_74.js
+file path=usr/share/doc/lutok/search/functions_61.html
+file path=usr/share/doc/lutok/search/functions_61.js
+file path=usr/share/doc/lutok/search/functions_63.html
+file path=usr/share/doc/lutok/search/functions_63.js
+file path=usr/share/doc/lutok/search/functions_64.html
+file path=usr/share/doc/lutok/search/functions_64.js
+file path=usr/share/doc/lutok/search/functions_65.html
+file path=usr/share/doc/lutok/search/functions_65.js
+file path=usr/share/doc/lutok/search/functions_66.html
+file path=usr/share/doc/lutok/search/functions_66.js
+file path=usr/share/doc/lutok/search/functions_67.html
+file path=usr/share/doc/lutok/search/functions_67.js
+file path=usr/share/doc/lutok/search/functions_68.html
+file path=usr/share/doc/lutok/search/functions_68.js
+file path=usr/share/doc/lutok/search/functions_69.html
+file path=usr/share/doc/lutok/search/functions_69.js
+file path=usr/share/doc/lutok/search/functions_6c.html
+file path=usr/share/doc/lutok/search/functions_6c.js
+file path=usr/share/doc/lutok/search/functions_6e.html
+file path=usr/share/doc/lutok/search/functions_6e.js
+file path=usr/share/doc/lutok/search/functions_6f.html
+file path=usr/share/doc/lutok/search/functions_6f.js
+file path=usr/share/doc/lutok/search/functions_70.html
+file path=usr/share/doc/lutok/search/functions_70.js
+file path=usr/share/doc/lutok/search/functions_72.html
+file path=usr/share/doc/lutok/search/functions_72.js
+file path=usr/share/doc/lutok/search/functions_73.html
+file path=usr/share/doc/lutok/search/functions_73.js
+file path=usr/share/doc/lutok/search/functions_74.html
+file path=usr/share/doc/lutok/search/functions_74.js
+file path=usr/share/doc/lutok/search/functions_75.html
+file path=usr/share/doc/lutok/search/functions_75.js
+file path=usr/share/doc/lutok/search/functions_77.html
+file path=usr/share/doc/lutok/search/functions_77.js
+file path=usr/share/doc/lutok/search/functions_7e.html
+file path=usr/share/doc/lutok/search/functions_7e.js
+file path=usr/share/doc/lutok/search/mag_sel.png
+file path=usr/share/doc/lutok/search/namespaces_61.html
+file path=usr/share/doc/lutok/search/namespaces_61.js
+file path=usr/share/doc/lutok/search/nomatches.html
+file path=usr/share/doc/lutok/search/search.css
+file path=usr/share/doc/lutok/search/search.js
+file path=usr/share/doc/lutok/search/search_l.png
+file path=usr/share/doc/lutok/search/search_m.png
+file path=usr/share/doc/lutok/search/search_r.png
+file path=usr/share/doc/lutok/search/variables_5f.html
+file path=usr/share/doc/lutok/search/variables_5f.js
+file path=usr/share/doc/lutok/search/variables_6c.html
+file path=usr/share/doc/lutok/search/variables_6c.js
+file path=usr/share/doc/lutok/search/variables_6f.html
+file path=usr/share/doc/lutok/search/variables_6f.js
+file path=usr/share/doc/lutok/search/variables_73.html
+file path=usr/share/doc/lutok/search/variables_73.js
+file path=usr/share/doc/lutok/tab_a.png
+file path=usr/share/doc/lutok/tab_b.png
+file path=usr/share/doc/lutok/tab_h.png
+file path=usr/share/doc/lutok/tab_s.png
+file path=usr/share/doc/lutok/tabs.css
+file path=usr/tests/lutok/Kyuafile
+file path=usr/tests/lutok/c_gate_test
+file path=usr/tests/lutok/debug_test
+file path=usr/tests/lutok/examples_test
+file path=usr/tests/lutok/exceptions_test
+file path=usr/tests/lutok/operations_test
+file path=usr/tests/lutok/stack_cleaner_test
+file path=usr/tests/lutok/state_test
