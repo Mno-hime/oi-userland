@@ -1,0 +1,10 @@
+--- atf-0.21/atf-c/tp_test.c	2014-10-14 04:23:06.000000000 +0000
++++ atf-0.21/atf-c/tp_test.c.old	2020-02-04 07:56:59.285052504 +0000
+@@ -27,6 +27,7 @@
+ 
+ #include <string.h>
+ #include <unistd.h>
++#include <stdio.h>
+ 
+ #include <atf-c.h>
+ 

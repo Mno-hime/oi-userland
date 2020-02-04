@@ -1,0 +1,143 @@
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright 2020, Michal Nowak
+#
+
+set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
+set name=pkg.summary value="$(COMPONENT_SUMMARY)"
+set name=info.classification value="$(COMPONENT_CLASSIFICATION)"
+set name=info.upstream-url value=$(COMPONENT_PROJECT_URL)
+set name=info.source-url value=$(COMPONENT_ARCHIVE_URL)
+set name=org.opensolaris.consolidation value=$(CONSOLIDATION)
+
+license $(COMPONENT_LICENSE_FILE) license='$(COMPONENT_LICENSE)'
+
+file path=usr/bin/$(MACH64)/atf-sh
+file path=usr/bin/atf-sh
+file path=usr/include/atf-c++.hpp
+file path=usr/include/atf-c++/build.hpp
+file path=usr/include/atf-c++/check.hpp
+file path=usr/include/atf-c++/macros.hpp
+file path=usr/include/atf-c++/tests.hpp
+file path=usr/include/atf-c++/utils.hpp
+file path=usr/include/atf-c.h
+file path=usr/include/atf-c/build.h
+file path=usr/include/atf-c/check.h
+file path=usr/include/atf-c/defs.h
+file path=usr/include/atf-c/error.h
+file path=usr/include/atf-c/error_fwd.h
+file path=usr/include/atf-c/macros.h
+file path=usr/include/atf-c/tc.h
+file path=usr/include/atf-c/tp.h
+file path=usr/include/atf-c/utils.h
+link path=usr/lib/$(MACH64)/libatf-c++.so target=libatf-c++.so.2.0.0
+link path=usr/lib/$(MACH64)/libatf-c++.so.2 target=libatf-c++.so.2.0.0
+file path=usr/lib/$(MACH64)/libatf-c++.so.2.0.0
+link path=usr/lib/$(MACH64)/libatf-c.so target=libatf-c.so.1.0.0
+link path=usr/lib/$(MACH64)/libatf-c.so.1 target=libatf-c.so.1.0.0
+file path=usr/lib/$(MACH64)/libatf-c.so.1.0.0
+file path=usr/lib/$(MACH64)/pkgconfig/atf-c++.pc
+file path=usr/lib/$(MACH64)/pkgconfig/atf-c.pc
+file path=usr/lib/$(MACH64)/pkgconfig/atf-sh.pc
+link path=usr/lib/libatf-c++.so target=libatf-c++.so.2.0.0
+link path=usr/lib/libatf-c++.so.2 target=libatf-c++.so.2.0.0
+file path=usr/lib/libatf-c++.so.2.0.0
+link path=usr/lib/libatf-c.so target=libatf-c.so.1.0.0
+link path=usr/lib/libatf-c.so.1 target=libatf-c.so.1.0.0
+file path=usr/lib/libatf-c.so.1.0.0
+file path=usr/lib/pkgconfig/atf-c++.pc
+file path=usr/lib/pkgconfig/atf-c.pc
+file path=usr/lib/pkgconfig/atf-sh.pc
+file path=usr/libexec/atf-check
+file path=usr/share/aclocal/atf-c++.m4
+file path=usr/share/aclocal/atf-c.m4
+file path=usr/share/aclocal/atf-common.m4
+file path=usr/share/aclocal/atf-sh.m4
+file path=usr/share/atf/libatf-sh.subr
+file path=usr/share/doc/atf/AUTHORS
+file path=usr/share/doc/atf/COPYING
+file path=usr/share/doc/atf/NEWS
+file path=usr/share/doc/atf/README
+file path=usr/share/man/man1/atf-check.1
+file path=usr/share/man/man1/atf-sh.1
+file path=usr/share/man/man1/atf-test-program.1
+link path=usr/share/man/man3/atf-c++-api.3 target=atf-c++.3
+file path=usr/share/man/man3/atf-c++.3
+link path=usr/share/man/man3/atf-c-api.3 target=atf-c.3
+file path=usr/share/man/man3/atf-c.3
+link path=usr/share/man/man3/atf-sh-api.3 target=atf-sh.3
+file path=usr/share/man/man3/atf-sh.3
+file path=usr/share/man/man4/atf-test-case.4
+file path=usr/share/man/man7/atf.7
+#file path=usr/tests/atf/Kyuafile
+#file path=usr/tests/atf/atf-c++/Kyuafile
+#file path=usr/tests/atf/atf-c++/atf_c++_test
+#file path=usr/tests/atf/atf-c++/build_test
+#file path=usr/tests/atf/atf-c++/check_test
+#file path=usr/tests/atf/atf-c++/detail/Kyuafile
+#file path=usr/tests/atf/atf-c++/detail/application_test
+#file path=usr/tests/atf/atf-c++/detail/auto_array_test
+#file path=usr/tests/atf/atf-c++/detail/env_test
+#file path=usr/tests/atf/atf-c++/detail/exceptions_test
+#file path=usr/tests/atf/atf-c++/detail/fs_test
+#file path=usr/tests/atf/atf-c++/detail/process_test
+#file path=usr/tests/atf/atf-c++/detail/text_test
+#file path=usr/tests/atf/atf-c++/detail/version_helper
+#file path=usr/tests/atf/atf-c++/macros_hpp_test.cpp
+#file path=usr/tests/atf/atf-c++/macros_test
+#file path=usr/tests/atf/atf-c++/pkg_config_test
+#file path=usr/tests/atf/atf-c++/tests_test
+#file path=usr/tests/atf/atf-c++/unused_test.cpp
+#file path=usr/tests/atf/atf-c++/utils_test
+#file path=usr/tests/atf/atf-c/Kyuafile
+#file path=usr/tests/atf/atf-c/atf_c_test
+#file path=usr/tests/atf/atf-c/build_test
+#file path=usr/tests/atf/atf-c/check_test
+#file path=usr/tests/atf/atf-c/detail/Kyuafile
+#file path=usr/tests/atf/atf-c/detail/dynstr_test
+#file path=usr/tests/atf/atf-c/detail/env_test
+#file path=usr/tests/atf/atf-c/detail/fs_test
+#file path=usr/tests/atf/atf-c/detail/list_test
+#file path=usr/tests/atf/atf-c/detail/map_test
+#file path=usr/tests/atf/atf-c/detail/process_helpers
+#file path=usr/tests/atf/atf-c/detail/process_test
+#file path=usr/tests/atf/atf-c/detail/sanity_test
+#file path=usr/tests/atf/atf-c/detail/text_test
+#file path=usr/tests/atf/atf-c/detail/user_test
+#file path=usr/tests/atf/atf-c/detail/version_helper
+#file path=usr/tests/atf/atf-c/error_test
+#file path=usr/tests/atf/atf-c/macros_h_test.c
+#file path=usr/tests/atf/atf-c/macros_test
+#file path=usr/tests/atf/atf-c/pkg_config_test
+#file path=usr/tests/atf/atf-c/tc_test
+#file path=usr/tests/atf/atf-c/tp_test
+#file path=usr/tests/atf/atf-c/unused_test.c
+#file path=usr/tests/atf/atf-c/utils_test
+#file path=usr/tests/atf/atf-sh/Kyuafile
+#file path=usr/tests/atf/atf-sh/atf-check_test
+#file path=usr/tests/atf/atf-sh/atf_check_test
+#file path=usr/tests/atf/atf-sh/config_test
+#file path=usr/tests/atf/atf-sh/integration_test
+#file path=usr/tests/atf/atf-sh/misc_helpers
+#file path=usr/tests/atf/atf-sh/normalize_test
+#file path=usr/tests/atf/atf-sh/tc_test
+#file path=usr/tests/atf/atf-sh/tp_test
+#file path=usr/tests/atf/test-programs/Kyuafile
+#file path=usr/tests/atf/test-programs/c_helpers
+#file path=usr/tests/atf/test-programs/config_test
+#file path=usr/tests/atf/test-programs/cpp_helpers
+#file path=usr/tests/atf/test-programs/expect_test
+#file path=usr/tests/atf/test-programs/meta_data_test
+#file path=usr/tests/atf/test-programs/result_test
+#file path=usr/tests/atf/test-programs/sh_helpers
+#file path=usr/tests/atf/test-programs/srcdir_test
