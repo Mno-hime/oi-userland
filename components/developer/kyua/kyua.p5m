@@ -1,0 +1,214 @@
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source.  A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+#
+
+#
+# Copyright 2020, Michal Nowak
+#
+
+set name=pkg.fmri value=pkg:/$(COMPONENT_FMRI)@$(IPS_COMPONENT_VERSION),$(BUILD_VERSION)
+set name=pkg.summary value="$(COMPONENT_SUMMARY)"
+set name=info.classification value="$(COMPONENT_CLASSIFICATION)"
+set name=info.upstream-url value=$(COMPONENT_PROJECT_URL)
+set name=info.source-url value=$(COMPONENT_ARCHIVE_URL)
+set name=org.opensolaris.consolidation value=$(CONSOLIDATION)
+
+license $(COMPONENT_LICENSE_FILE) license='$(COMPONENT_LICENSE)'
+
+file path=usr/bin/kyua
+file path=usr/share/doc/kyua/AUTHORS
+file path=usr/share/doc/kyua/CONTRIBUTING.md
+file path=usr/share/doc/kyua/CONTRIBUTORS
+file path=usr/share/doc/kyua/LICENSE
+file path=usr/share/doc/kyua/NEWS.md
+file path=usr/share/kyua/examples/Kyuafile.top
+file path=usr/share/kyua/examples/kyua.conf
+file path=usr/share/kyua/misc/context.html
+file path=usr/share/kyua/misc/index.html
+file path=usr/share/kyua/misc/report.css
+file path=usr/share/kyua/misc/test_result.html
+file path=usr/share/kyua/store/migrate_v1_v2.sql
+file path=usr/share/kyua/store/migrate_v2_v3.sql
+file path=usr/share/kyua/store/schema_v3.sql
+file path=usr/share/man/man1/kyua-about.1
+file path=usr/share/man/man1/kyua-config.1
+file path=usr/share/man/man1/kyua-db-exec.1
+file path=usr/share/man/man1/kyua-db-migrate.1
+file path=usr/share/man/man1/kyua-debug.1
+file path=usr/share/man/man1/kyua-help.1
+file path=usr/share/man/man1/kyua-list.1
+file path=usr/share/man/man1/kyua-report-html.1
+file path=usr/share/man/man1/kyua-report-junit.1
+file path=usr/share/man/man1/kyua-report.1
+file path=usr/share/man/man1/kyua-test.1
+file path=usr/share/man/man1/kyua.1
+file path=usr/share/man/man5/kyua.conf.5
+file path=usr/share/man/man5/kyuafile.5
+#file path=usr/tests/kyua/Kyuafile
+#file path=usr/tests/kyua/bootstrap/Kyuafile
+#file path=usr/tests/kyua/bootstrap/atf_helpers
+#file path=usr/tests/kyua/bootstrap/plain_helpers
+#file path=usr/tests/kyua/bootstrap/testsuite
+#file path=usr/tests/kyua/cli/Kyuafile
+#file path=usr/tests/kyua/cli/cmd_about_test
+#file path=usr/tests/kyua/cli/cmd_config_test
+#file path=usr/tests/kyua/cli/cmd_db_exec_test
+#file path=usr/tests/kyua/cli/cmd_debug_test
+#file path=usr/tests/kyua/cli/cmd_help_test
+#file path=usr/tests/kyua/cli/cmd_list_test
+#file path=usr/tests/kyua/cli/cmd_test_test
+#file path=usr/tests/kyua/cli/common_test
+#file path=usr/tests/kyua/cli/config_test
+#file path=usr/tests/kyua/cli/main_test
+#file path=usr/tests/kyua/drivers/Kyuafile
+#file path=usr/tests/kyua/drivers/list_tests_helpers
+#file path=usr/tests/kyua/drivers/list_tests_test
+#file path=usr/tests/kyua/drivers/report_junit_test
+#file path=usr/tests/kyua/drivers/scan_results_test
+#file path=usr/tests/kyua/engine/Kyuafile
+#file path=usr/tests/kyua/engine/atf_helpers
+#file path=usr/tests/kyua/engine/atf_list_test
+#file path=usr/tests/kyua/engine/atf_result_test
+#file path=usr/tests/kyua/engine/atf_test
+#file path=usr/tests/kyua/engine/config_test
+#file path=usr/tests/kyua/engine/exceptions_test
+#file path=usr/tests/kyua/engine/filters_test
+#file path=usr/tests/kyua/engine/kyuafile_test
+#file path=usr/tests/kyua/engine/plain_helpers
+#file path=usr/tests/kyua/engine/plain_test
+#file path=usr/tests/kyua/engine/requirements_test
+#file path=usr/tests/kyua/engine/scanner_test
+#file path=usr/tests/kyua/engine/scheduler_test
+#file path=usr/tests/kyua/engine/tap_helpers
+#file path=usr/tests/kyua/engine/tap_parser_test
+#file path=usr/tests/kyua/engine/tap_test
+#file path=usr/tests/kyua/examples/Kyuafile
+#file path=usr/tests/kyua/examples/syntax_test
+#file path=usr/tests/kyua/integration/Kyuafile
+#file path=usr/tests/kyua/integration/cmd_about_test
+#file path=usr/tests/kyua/integration/cmd_config_test
+#file path=usr/tests/kyua/integration/cmd_db_exec_test
+#file path=usr/tests/kyua/integration/cmd_db_migrate_test
+#file path=usr/tests/kyua/integration/cmd_debug_test
+#file path=usr/tests/kyua/integration/cmd_help_test
+#file path=usr/tests/kyua/integration/cmd_list_test
+#file path=usr/tests/kyua/integration/cmd_report_html_test
+#file path=usr/tests/kyua/integration/cmd_report_junit_test
+#file path=usr/tests/kyua/integration/cmd_report_test
+#file path=usr/tests/kyua/integration/cmd_test_test
+#file path=usr/tests/kyua/integration/global_test
+#file path=usr/tests/kyua/integration/helpers/bad_test_program
+#file path=usr/tests/kyua/integration/helpers/bogus_test_cases
+#file path=usr/tests/kyua/integration/helpers/config
+#file path=usr/tests/kyua/integration/helpers/dump_env
+#file path=usr/tests/kyua/integration/helpers/expect_all_pass
+#file path=usr/tests/kyua/integration/helpers/expect_some_fail
+#file path=usr/tests/kyua/integration/helpers/interrupts
+#file path=usr/tests/kyua/integration/helpers/metadata
+#file path=usr/tests/kyua/integration/helpers/race
+#file path=usr/tests/kyua/integration/helpers/simple_all_pass
+#file path=usr/tests/kyua/integration/helpers/simple_some_fail
+#file path=usr/tests/kyua/model/Kyuafile
+#file path=usr/tests/kyua/model/context_test
+#file path=usr/tests/kyua/model/exceptions_test
+#file path=usr/tests/kyua/model/metadata_test
+#file path=usr/tests/kyua/model/test_case_test
+#file path=usr/tests/kyua/model/test_program_test
+#file path=usr/tests/kyua/model/test_result_test
+#file path=usr/tests/kyua/store/Kyuafile
+#file path=usr/tests/kyua/store/dbtypes_test
+#file path=usr/tests/kyua/store/exceptions_test
+#file path=usr/tests/kyua/store/layout_test
+#file path=usr/tests/kyua/store/metadata_test
+#file path=usr/tests/kyua/store/migrate_test
+#file path=usr/tests/kyua/store/read_backend_test
+#file path=usr/tests/kyua/store/read_transaction_test
+#file path=usr/tests/kyua/store/schema_inttest
+#file path=usr/tests/kyua/store/schema_v1.sql
+#file path=usr/tests/kyua/store/schema_v2.sql
+#file path=usr/tests/kyua/store/testdata_v1.sql
+#file path=usr/tests/kyua/store/testdata_v2.sql
+#file path=usr/tests/kyua/store/testdata_v3_1.sql
+#file path=usr/tests/kyua/store/testdata_v3_2.sql
+#file path=usr/tests/kyua/store/testdata_v3_3.sql
+#file path=usr/tests/kyua/store/testdata_v3_4.sql
+#file path=usr/tests/kyua/store/transaction_test
+#file path=usr/tests/kyua/store/write_backend_test
+#file path=usr/tests/kyua/store/write_transaction_test
+#file path=usr/tests/kyua/utils/Kyuafile
+#file path=usr/tests/kyua/utils/auto_array_test
+#file path=usr/tests/kyua/utils/cmdline/Kyuafile
+#file path=usr/tests/kyua/utils/cmdline/base_command_test
+#file path=usr/tests/kyua/utils/cmdline/commands_map_test
+#file path=usr/tests/kyua/utils/cmdline/exceptions_test
+#file path=usr/tests/kyua/utils/cmdline/globals_test
+#file path=usr/tests/kyua/utils/cmdline/options_test
+#file path=usr/tests/kyua/utils/cmdline/parser_test
+#file path=usr/tests/kyua/utils/cmdline/ui_test
+#file path=usr/tests/kyua/utils/config/Kyuafile
+#file path=usr/tests/kyua/utils/config/exceptions_test
+#file path=usr/tests/kyua/utils/config/keys_test
+#file path=usr/tests/kyua/utils/config/lua_module_test
+#file path=usr/tests/kyua/utils/config/nodes_test
+#file path=usr/tests/kyua/utils/config/parser_test
+#file path=usr/tests/kyua/utils/config/tree_test
+#file path=usr/tests/kyua/utils/datetime_test
+#file path=usr/tests/kyua/utils/env_test
+#file path=usr/tests/kyua/utils/format/Kyuafile
+#file path=usr/tests/kyua/utils/format/containers_test
+#file path=usr/tests/kyua/utils/format/exceptions_test
+#file path=usr/tests/kyua/utils/format/formatter_test
+#file path=usr/tests/kyua/utils/fs/Kyuafile
+#file path=usr/tests/kyua/utils/fs/auto_cleaners_test
+#file path=usr/tests/kyua/utils/fs/directory_test
+#file path=usr/tests/kyua/utils/fs/exceptions_test
+#file path=usr/tests/kyua/utils/fs/lua_module_test
+#file path=usr/tests/kyua/utils/fs/operations_test
+#file path=usr/tests/kyua/utils/fs/path_test
+#file path=usr/tests/kyua/utils/logging/Kyuafile
+#file path=usr/tests/kyua/utils/logging/macros_test
+#file path=usr/tests/kyua/utils/logging/operations_test
+#file path=usr/tests/kyua/utils/memory_test
+#file path=usr/tests/kyua/utils/optional_test
+#file path=usr/tests/kyua/utils/passwd_test
+#file path=usr/tests/kyua/utils/process/Kyuafile
+#file path=usr/tests/kyua/utils/process/child_test
+#file path=usr/tests/kyua/utils/process/deadline_killer_test
+#file path=usr/tests/kyua/utils/process/exceptions_test
+#file path=usr/tests/kyua/utils/process/executor_test
+#file path=usr/tests/kyua/utils/process/fdstream_test
+#file path=usr/tests/kyua/utils/process/helpers
+#file path=usr/tests/kyua/utils/process/isolation_test
+#file path=usr/tests/kyua/utils/process/operations_test
+#file path=usr/tests/kyua/utils/process/status_test
+#file path=usr/tests/kyua/utils/process/systembuf_test
+#file path=usr/tests/kyua/utils/sanity_test
+#file path=usr/tests/kyua/utils/signals/Kyuafile
+#file path=usr/tests/kyua/utils/signals/exceptions_test
+#file path=usr/tests/kyua/utils/signals/interrupts_test
+#file path=usr/tests/kyua/utils/signals/misc_test
+#file path=usr/tests/kyua/utils/signals/programmer_test
+#file path=usr/tests/kyua/utils/signals/timer_test
+#file path=usr/tests/kyua/utils/sqlite/Kyuafile
+#file path=usr/tests/kyua/utils/sqlite/c_gate_test
+#file path=usr/tests/kyua/utils/sqlite/database_test
+#file path=usr/tests/kyua/utils/sqlite/exceptions_test
+#file path=usr/tests/kyua/utils/sqlite/statement_test
+#file path=usr/tests/kyua/utils/sqlite/transaction_test
+#file path=usr/tests/kyua/utils/stacktrace_helper
+#file path=usr/tests/kyua/utils/stacktrace_test
+#file path=usr/tests/kyua/utils/stream_test
+#file path=usr/tests/kyua/utils/text/Kyuafile
+#file path=usr/tests/kyua/utils/text/exceptions_test
+#file path=usr/tests/kyua/utils/text/operations_test
+#file path=usr/tests/kyua/utils/text/regex_test
+#file path=usr/tests/kyua/utils/text/table_test
+#file path=usr/tests/kyua/utils/text/templates_test
+#file path=usr/tests/kyua/utils/units_test
