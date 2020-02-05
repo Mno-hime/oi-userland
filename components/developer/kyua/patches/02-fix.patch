@@ -1,0 +1,11 @@
+--- kyua-0.13/utils/cmdline/parser.cpp	2016-02-02 04:18:41.000000000 +0000
++++ kyua-0.13/utils/cmdline/parser.cpp.new	2020-02-05 18:40:13.397680439 +0000
+@@ -86,7 +86,7 @@ options_to_getopt_data(const cmdline::op
+         const cmdline::base_option* option = options[i];
+         ::option& long_option = data.long_options[i];
+ 
+-        long_option.name = option->long_name().c_str();
++        long_option.name = (char *)option->long_name().c_str();
+         if (option->needs_arg())
+             long_option.has_arg = required_argument;
+         else

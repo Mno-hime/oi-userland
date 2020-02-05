@@ -31,8 +31,6 @@ COMPONENT_LICENSE_FILE=	LICENSE
 
 include $(WS_MAKE_RULES)/common.mk
 
-CXXFLAGS += -fpermissive
-
 CONFIGURE_OPTIONS += --with-doxygen=no
 CONFIGURE_OPTIONS += --with-atf=yes
 

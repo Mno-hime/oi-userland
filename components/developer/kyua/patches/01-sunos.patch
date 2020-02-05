@@ -1,0 +1,11 @@
+--- kyua-0.13/utils/fs/operations.cpp.old	2020-02-05 14:12:54.120856086 +0000
++++ kyua-0.13/utils/fs/operations.cpp	2020-02-05 14:13:40.210059812 +0000
+@@ -96,7 +96,7 @@ static enum os_type current_os =
+     os_linux
+ #elif defined(__NetBSD__)
+     os_netbsd
+-#elif defined(__SunOS__)
++#elif defined(__sun)
+     os_sunos
+ #else
+     os_unsupported
