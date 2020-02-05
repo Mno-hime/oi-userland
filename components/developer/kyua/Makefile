@@ -34,7 +34,7 @@ include $(WS_MAKE_RULES)/common.mk
 CXXFLAGS += -fpermissive
 
 CONFIGURE_OPTIONS += --with-doxygen=no
-CONFIGURE_OPTIONS += --with-with-atf=yes
+CONFIGURE_OPTIONS += --with-atf=yes
 
 REQUIRED_PACKAGES += developer/atf
 # Auto-generated dependencies
