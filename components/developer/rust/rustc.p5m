@@ -38,8 +38,8 @@ file path=usr/bin/cargo
 file path=usr/bin/cargo-clippy
 file path=usr/bin/cargo-fmt
 file path=usr/bin/cargo-miri
-file path=usr/bin/clippy-driver
-file path=usr/bin/miri
+file path=usr/bin/clippy-driver pkg.depend.bypass-generate=.*
+file path=usr/bin/miri pkg.depend.bypass-generate=.*
 file path=usr/bin/rls
 file path=usr/bin/rust-gdb
 file path=usr/bin/rust-gdbgui
@@ -86,7 +86,7 @@ file path=usr/lib/rustlib/x86_64-sun-solaris/analysis/libterm-25c5d3802328cea9.j
 file path=usr/lib/rustlib/x86_64-sun-solaris/analysis/libtest-0f638c18f226151a.json
 file path=usr/lib/rustlib/x86_64-sun-solaris/analysis/libunicode_width-8ec47c7c07f2473e.json
 file path=usr/lib/rustlib/x86_64-sun-solaris/analysis/libunwind-bb0f20a84bf09175.json
-file path=usr/lib/rustlib/x86_64-sun-solaris/codegen-backends/librustc_codegen_llvm-llvm.so
+file path=usr/lib/rustlib/x86_64-sun-solaris/codegen-backends/librustc_codegen_llvm-llvm.so pkg.depend.bypass-generate=.*
 file path=usr/lib/rustlib/x86_64-sun-solaris/lib/liballoc-8584ba867da06c00.rlib
 file path=usr/lib/rustlib/x86_64-sun-solaris/lib/libbacktrace-bde42dadf0a47aa9.rlib
 file path=usr/lib/rustlib/x86_64-sun-solaris/lib/libbacktrace_sys-175d885825354a19.rlib
@@ -110,6 +110,8 @@ file path=usr/lib/rustlib/x86_64-sun-solaris/lib/libtest-0f638c18f226151a.rlib
 file path=usr/lib/rustlib/x86_64-sun-solaris/lib/libtest-0f638c18f226151a.so
 file path=usr/lib/rustlib/x86_64-sun-solaris/lib/libunicode_width-8ec47c7c07f2473e.rlib
 file path=usr/lib/rustlib/x86_64-sun-solaris/lib/libunwind-bb0f20a84bf09175.rlib
+# Manual copy from build/amd64/build/x86_64-sun-solaris/stage2/lib/rustlib/x86_64-sun-solaris/lib/librustc_driver-61711cbc9b978200.so
+file path=usr/lib/rustlib/x86_64-sun-solaris/lib/librustc_driver-61711cbc9b978200.so
 file path=usr/share/doc/rust-$(COMPONENT_VERSION)/COPYRIGHT
 file path=usr/share/doc/rust-$(COMPONENT_VERSION)/LICENSE-APACHE
 file path=usr/share/doc/rust-$(COMPONENT_VERSION)/LICENSE-APACHE.old
